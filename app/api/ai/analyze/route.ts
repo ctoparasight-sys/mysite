@@ -1,82 +1,70 @@
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 type AnalyzeRequest = {
   text: string;
 };
 
-type AnalyzeResponse = {
-  summary: string;
-  diseases: { name: string; confidence: number }[];
-  tags: { name: string; confidence: number }[];
-  confidence: number;
-};
-
-function pickFromLexicon(text: string, lexicon: string[]) {
-  const t = text.toLowerCase();
-  const hits = lexicon
-    .map((name) => {
-      const n = name.toLowerCase();
-      const hit = t.includes(n);
-      return hit ? { name, confidence: 0.7 } : null;
-    })
-    .filter(Boolean) as { name: string; confidence: number }[];
-  return hits.slice(0, 5);
-}
-
-function naiveSummary(text: string) {
-  const clean = text.replace(/\s+/g, " ").trim();
-  if (!clean) return "No content provided.";
-  // crude “first sentence-ish” summary
-  const cut = clean.split(/(?<=[.!?])\s+/)[0] ?? clean;
-  return cut.length > 220 ? cut.slice(0, 220) + "…" : cut;
-}
-
 export async function POST(req: Request) {
   const body = (await req.json()) as Partial<AnalyzeRequest>;
-  const text = (body.text ?? "").toString();
+  const text = (body.text ?? "").toString().trim();
 
-  // Very small starter lexicons (we can expand later)
-  const diseaseLexicon = [
-    "Parkinson",
-    "Alzheimer",
-    "ALS",
-    "Huntington",
-    "diabetes",
-    "cancer",
-    "COVID",
-    "autism",
-    "schizophrenia",
-    "multiple sclerosis",
-  ];
+  if (!text) {
+    return NextResponse.json(
+      { error: "No text provided" },
+      { status: 400 }
+    );
+  }
 
-  const tagLexicon = [
-    "mouse",
-    "zebrafish",
-    "human",
-    "CRISPR",
-    "RNA-seq",
-    "single-cell",
-    "western blot",
-    "immunofluorescence",
-    "ELISA",
-    "mass spectrometry",
-    "organoid",
-  ];
+  const systemPrompt = `
+You are a scientific analysis assistant.
 
-  const diseases = pickFromLexicon(text, diseaseLexicon);
-  const tags = pickFromLexicon(text, tagLexicon);
+Given an experimental description or result:
+1) Produce a concise, neutral summary (2–3 sentences).
+2) List diseases explicitly mentioned or strongly implied.
+3) List experimental methods / biological entities.
+4) Estimate an overall confidence (0–1) that the text is a real, well-controlled biological result.
 
-  const summary = naiveSummary(text);
+Respond strictly as JSON with this schema:
+{
+  "summary": string,
+  "diseases": [{ "name": string, "confidence": number }],
+  "tags": [{ "name": string, "confidence": number }],
+  "confidence": number
+}
+`;
 
-  const response: AnalyzeResponse = {
-    summary,
-    diseases,
-    tags,
-    confidence: Math.min(
-      0.9,
-      0.3 + 0.15 * diseases.length + 0.1 * tags.length
-    ),
-  };
+  const completion = await client.chat.completions.create({
+    model: "gpt-4.1-mini",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: text },
+    ],
+    temperature: 0.2,
+  });
 
-  return NextResponse.json(response);
+  const raw = completion.choices[0]?.message?.content;
+
+  if (!raw) {
+    return NextResponse.json(
+      { error: "Model returned no output" },
+      { status: 500 }
+    );
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    return NextResponse.json(
+      { error: "Failed to parse model output", raw },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json(parsed);
 }
