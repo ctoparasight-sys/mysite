@@ -13,14 +13,14 @@
 // Generate one quickly:
 //   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
-import type { IronSessionOptions } from "iron-session";
+import type { SessionOptions } from "iron-session";
 
 export interface SessionData {
   address?: string;   // checksummed Ethereum address, set after SIWE verify
   nonce?: string;     // one-time SIWE challenge, cleared after verify
 }
 
-export const sessionOptions: IronSessionOptions = {
+export const sessionOptions: SessionOptions = {
   password: process.env.SESSION_SECRET as string,
   cookieName: "carrierwave_session",
   cookieOptions: {

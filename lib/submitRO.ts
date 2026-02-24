@@ -63,7 +63,7 @@ export async function submitRO(
     };
   }
 
-  return body as SubmitROResult;
+  return body as unknown as SubmitROResult;
 }
 
 // Fetch a single RO by ID — use in detail pages
