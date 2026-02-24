@@ -472,15 +472,15 @@ export default function HomePage() {
 
       {/* ── Hero ── */}
       <section className="cw-hero">
-        <div className="cw-hero-eyebrow cw-fade-up">Open Research Infrastructure</div>
+        <div className="cw-hero-eyebrow cw-fade-up">Biological Knowledge Infrastructure</div>
 
         <h1 className="cw-hero-headline cw-fade-up delay-1">
-          Science moves faster<br />
-          <span className="line2">when nothing is hidden.</span>
+          Scientific knowledge:<br />
+          <span className="line2">mapped like never before.</span>
         </h1>
 
         <p className="cw-hero-sub cw-fade-up delay-2">
-          Carrierwave is an open infrastructure for <strong>continuous scientific disclosure</strong>.
+          Result by result, Carrierwave maps what's known, infers what's next, and identifies the value for every stakeholder.
           Share a result the day you run it. Establish priority. Get credit when it matters.
         </p>
 
@@ -566,15 +566,15 @@ export default function HomePage() {
       {/* ── Manifesto strip ── */}
       <div className="cw-manifesto">
         <blockquote>
-          "No new papers" ≠ "no progress" —<br />
-          it means <em>no visibility</em>.
+          "The next breakthrough isn't hiding in a lab.<br />
+          <em>It's already happened.</em>"
         </blockquote>
-        <cite>— Carrierwave white paper</cite>
+        <cite>— Carrierwave</cite>
       </div>
 
       {/* ── Final CTA ── */}
       <div className="cw-final-cta">
-        <h2>Your lab notebook,<br />open to the world.</h2>
+        <h2>Add your result<br />to the map.</h2>
         <p>
           Your wallet is your signature. Every RO you submit carries your address,
           a cryptographic hash, and a timestamp — permanent proof that you were first.
@@ -596,7 +596,7 @@ export default function HomePage() {
       <footer className="cw-footer">
         <div className="cw-footer-left">
           carrier<em style={{ color: "var(--accent)", fontStyle: "italic" }}>wave</em>
-          &nbsp;·&nbsp; open research infrastructure &nbsp;·&nbsp; 2026
+          &nbsp;·&nbsp; biological knowledge infrastructure &nbsp;·&nbsp; 2026
         </div>
         <div className="cw-footer-links">
           <a href="/explore">Feed</a>
