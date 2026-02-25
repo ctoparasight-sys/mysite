@@ -391,7 +391,7 @@ export default function HomePage() {
       const message = new SiweMessage({
         domain: window.location.host,
         address: userAddress,
-        statement: "Sign in to Carrierwave — your signature is your lab notebook seal.",
+        statement: "Sign in to Carrierwave. Your signature is your identity.",
         uri: window.location.origin,
         version: "1",
         chainId: 1,
