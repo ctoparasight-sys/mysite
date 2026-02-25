@@ -453,11 +453,13 @@ export default function HomePage() {
             >Get a wallet ↗</a>
           </div>
           {address ? (
-            <><a href="/profile" className="cw-btn cw-btn-ghost cw-btn-sm">My contributions</a>
-            <button onClick={signOut} className="cw-btn cw-btn-ghost cw-btn-sm">
-              <span style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{shortAddr}</span>
-              · Sign out
-            </button></>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <a href="/profile" className="cw-btn cw-btn-ghost cw-btn-sm">My profile</a>
+              <button onClick={signOut} className="cw-btn cw-btn-ghost cw-btn-sm">
+                <span style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{shortAddr}</span>
+                · Sign out
+              </button>
+            </div>
           ) : (
             <button
               onClick={signIn}
