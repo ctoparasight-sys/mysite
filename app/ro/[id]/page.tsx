@@ -1,4 +1,8 @@
 "use client";
+// @ts-ignore
+import { createWalletClient, custom, parseAbi } from "viem";
+// @ts-ignore
+import { sepolia } from "viem/chains";
 
 // =================================================================
 // app/ro/[id]/page.tsx — Research Object Detail Page
@@ -390,6 +394,8 @@ export default function RODetailPage() {
   const [error, setError]   = useState("");
   const [copied, setCopied] = useState(false);
   const [myAddress, setMyAddress] = useState<string | null>(null);
+  const [mintState, setMintState]   = useState<"idle"|"waiting"|"mining"|"done"|"error">("idle");
+  const [mintError, setMintError]   = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -409,6 +415,34 @@ export default function RODetailPage() {
       if (d.address) setMyAddress(d.address);
     });
   }, []);
+
+  async function handleMint() {
+    if (!ro) return;
+    const ethereum = (window as any).ethereum;
+    if (!ethereum) { setMintError("No wallet detected."); setMintState("error"); return; }
+    const CONTRACT = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
+    const ABI = parseAbi(["function mintRO(string calldata roId, string calldata contentHash) external returns (uint256)"]);
+    try {
+      setMintState("waiting"); setMintError("");
+      const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+      const account = accounts[0] as `0x${string}`;
+      try {
+        await ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0xaa36a7" }] });
+      } catch (e: any) {
+        if (e.code === 4902) await ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0xaa36a7", chainName: "Sepolia", nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://rpc.sepolia.org"], blockExplorerUrls: ["https://sepolia.etherscan.io"] }] });
+      }
+      const client = createWalletClient({ account, chain: sepolia, transport: custom(ethereum) });
+      setMintState("mining");
+      const txHash = await client.writeContract({ address: CONTRACT, abi: ABI, functionName: "mintRO", args: [ro.id, ro.contentHash] });
+      await fetch("/api/ro/mint", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roId: ro.id, txHash, chainId: 11155111 }) });
+      setMintState("done");
+      const updated = await fetch(`/api/ro/submit?id=${ro.id}`).then(r => r.json());
+      if (updated.ro) setRO(updated.ro);
+    } catch (err: any) {
+      setMintError(err?.shortMessage ?? err?.message ?? "Mint failed");
+      setMintState("error");
+    }
+  }
 
   function copyHash() {
     if (!ro) return;
@@ -676,10 +710,11 @@ export default function RODetailPage() {
                   </div>
                   <button
                     className="ro-mint-btn"
-                    disabled={!isOwner}
-                    title={isOwner ? "Mint this RO" : "Only the submitting wallet can mint"}
+                    disabled={!isOwner || mintState === "waiting" || mintState === "mining"}
+                    onClick={handleMint}
+                    title={isOwner ? "Mint this RO on-chain" : "Only the submitting wallet can mint"}
                   >
-                    ⬡ {isOwner ? "Mint on-chain" : "Sign in to mint"}
+                    {mintState === "waiting" || mintState === "mining" ? "⏳ Minting…" : `⬡ ${isOwner ? "Mint on-chain" : "Sign in to mint"}`}
                   </button>
                   {!isOwner && (
                     <div style={{ marginTop: 10, fontFamily: "var(--mono)", fontSize: 10, color: "var(--subtle)", textAlign: "center" }}>
