@@ -394,7 +394,7 @@ export default function HomePage() {
         statement: "Sign in to Carrierwave. Your signature is your identity.",
         uri: window.location.origin,
         version: "1",
-        chainId: 1,
+        chainId: await ethereum.request({ method: "eth_chainId" }).then((c: string) => parseInt(c, 16)),
         nonce,
       });
 
