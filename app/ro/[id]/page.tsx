@@ -698,8 +698,8 @@ export default function RODetailPage() {
                   <div style={{ marginBottom: 6 }}>Token ID: {ro.tokenId ?? "—"}</div>
                   <div style={{ marginBottom: 6 }}>Chain: {ro.chainId ?? "—"}</div>
                   <div style={{ wordBreak: "break-all" }}>
-                    Tx: <a href={`https://etherscan.io/tx/${ro.txHash}`} target="_blank" rel="noopener noreferrer">
-                      {ro.txHash.slice(0, 10)}…
+                    Tx: <a href={`https://sepolia.etherscan.io/tx/${ro.txHash}`} target="_blank" rel="noopener noreferrer">
+                      {ro.txHash.slice(0, 10)}…{ro.txHash.slice(-6)} ↗
                     </a>
                   </div>
                 </div>
