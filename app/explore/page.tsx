@@ -10,6 +10,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { ROSummary, ROType, ConfidenceLevel } from "@/types/ro";
 import type { LandscapeReport } from "@/types/landscape";
+import type { StatsResponse, StatsPeriod } from "@/types/stats";
 import SpiderOverlay, { type SpiderOverlayHandle } from "../SpiderOverlay";
 
 // ── Label / color maps ────────────────────────────────────────
@@ -355,6 +356,77 @@ const css = `
     .cw-stat { border-bottom: 1px solid var(--border); }
   }
 
+  /* Stats panels */
+  .cw-panels-section {
+    margin-top: 36px;
+    padding-top: 28px;
+    border-top: 1px solid var(--border);
+  }
+  .cw-panels-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .cw-panels-title {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--subtle);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .cw-panels-title::after { content: ''; flex: 1; height: 1px; background: var(--border); min-width: 40px; }
+  .cw-period-toggle { display: flex; gap: 0; }
+  .cw-period-btn {
+    padding: 5px 14px; font-family: var(--mono); font-size: 11px;
+    color: var(--subtle); background: var(--surface);
+    border: 1px solid var(--border); cursor: pointer;
+    transition: all var(--t);
+  }
+  .cw-period-btn:first-child { border-radius: 6px 0 0 6px; }
+  .cw-period-btn:last-child { border-radius: 0 6px 6px 0; }
+  .cw-period-btn:not(:first-child) { border-left: none; }
+  .cw-period-btn:hover { color: var(--text); }
+  .cw-period-btn.on {
+    background: rgba(79,140,255,0.12); border-color: var(--accent);
+    color: var(--accent);
+  }
+  .cw-period-btn.on + .cw-period-btn { border-left-color: var(--accent); }
+  .cw-panels-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 700px) { .cw-panels-grid { grid-template-columns: 1fr; } }
+  .cw-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 18px 20px 14px;
+    position: relative; overflow: hidden;
+  }
+  .cw-panel-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .cw-panel-title {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--subtle);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .cw-panel-title::after { content: ''; flex: 1; height: 1px; background: var(--border); min-width: 20px; }
+  .cw-panel-big {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-size: 24px; color: var(--bright); line-height: 1;
+  }
+  .cw-panel-empty {
+    font-family: var(--mono); font-size: 11px; color: var(--subtle);
+    text-align: center; padding: 24px 0;
+  }
+  .cw-legend-row {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;
+  }
+  .cw-legend-item {
+    display: flex; align-items: center; gap: 4px;
+    font-family: var(--mono); font-size: 9px; color: var(--subtle);
+  }
+  .cw-legend-dot {
+    width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0;
+  }
+
 `;
 
 // ── Component ─────────────────────────────────────────────────
@@ -371,6 +443,9 @@ export default function ExplorePage() {
   const [sidebarSearch, setSidebarSearch] = useState("");
   const [landscape, setLandscape] = useState<LandscapeReport | null>(null);
   const [landscapeLoading, setLandscapeLoading] = useState(true);
+  const [statsPeriod, setStatsPeriod] = useState<StatsPeriod>("month");
+  const [statsData, setStatsData] = useState<StatsResponse | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Spider agent
@@ -416,6 +491,21 @@ export default function ExplorePage() {
       .then(data => setLandscape(data as LandscapeReport))
       .catch(() => setLandscape(null))
       .finally(() => setLandscapeLoading(false));
+  }, []);
+
+  // Fetch stats panels data
+  useEffect(() => {
+    setStatsLoading(true);
+    fetch(`/api/ro/stats?period=${statsPeriod}`)
+      .then(r => r.json())
+      .then(data => setStatsData(data as StatsResponse))
+      .catch(() => setStatsData(null))
+      .finally(() => setStatsLoading(false));
+  }, [statsPeriod]);
+
+  // Fire-and-forget pageview counter
+  useEffect(() => {
+    fetch("/api/stats/pageview", { method: "POST" }).catch(() => {});
   }, []);
 
   // Spawn spider for newest RO after initial load
@@ -509,6 +599,57 @@ export default function ExplorePage() {
   const clearFilters = () => {
     setSearch(""); setSidebarSearch(""); setTypeFilter("");
     setConfFilter(0); setCommFilter(false); setMintFilter(false);
+  };
+
+  // ── SVG Line Chart Helper ──────────────────────────────────
+  const renderLineChart = (
+    data: { label: string; value: number }[],
+    color: string,
+    w = 320,
+    h = 120,
+    isPercent = false,
+  ) => {
+    const pad = { top: 10, right: 10, bottom: 24, left: 6 };
+    const cw = w - pad.left - pad.right;
+    const ch = h - pad.top - pad.bottom;
+    const maxVal = Math.max(...data.map(d => d.value), isPercent ? 100 : 1);
+    const step = data.length > 1 ? cw / (data.length - 1) : cw;
+
+    const points = data.map((d, i) => ({
+      x: pad.left + (data.length > 1 ? i * step : cw / 2),
+      y: pad.top + ch - (maxVal > 0 ? (d.value / maxVal) * ch : 0),
+    }));
+
+    const polyline = points.map(p => `${p.x},${p.y}`).join(" ");
+    const areaPath = points.length > 0
+      ? `M${points[0].x},${pad.top + ch} ${points.map(p => `L${p.x},${p.y}`).join(" ")} L${points[points.length - 1].x},${pad.top + ch} Z`
+      : "";
+
+    // Show ~6 evenly spaced x-labels
+    const labelInterval = Math.max(1, Math.floor(data.length / 6));
+
+    return (
+      <svg viewBox={`0 0 ${w} ${h}`} width="100%" style={{ display: "block" }}>
+        {/* area fill */}
+        <path d={areaPath} fill={color} opacity={0.08} />
+        {/* line */}
+        <polyline points={polyline} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+        {/* dots */}
+        {points.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={2.5} fill={color} opacity={data[i].value > 0 ? 1 : 0.3} />
+        ))}
+        {/* x-labels */}
+        {data.map((d, i) => (
+          i % labelInterval === 0 || i === data.length - 1 ? (
+            <text key={i} x={points[i].x} y={h - 4} textAnchor="middle" fill="#4a5580" fontSize={8} fontFamily="'DM Mono', monospace">
+              {d.label}
+            </text>
+          ) : null
+        ))}
+        {/* zero baseline */}
+        <line x1={pad.left} y1={pad.top + ch} x2={pad.left + cw} y2={pad.top + ch} stroke="#1f2535" strokeWidth={0.5} />
+      </svg>
+    );
   };
 
   // ── Render ───────────────────────────────────────────────────
@@ -807,6 +948,166 @@ export default function ExplorePage() {
           </div>
 
         </div>
+
+        {/* ── Stats Panels ── */}
+        <div className="cw-panels-section cw-fade">
+          <div className="cw-panels-header">
+            <div className="cw-panels-title">Analytics</div>
+            <div className="cw-period-toggle">
+              {(["week", "month", "year"] as StatsPeriod[]).map(p => (
+                <button
+                  key={p}
+                  className={`cw-period-btn${statsPeriod === p ? " on" : ""}`}
+                  onClick={() => setStatsPeriod(p)}
+                >{p}</button>
+              ))}
+            </div>
+          </div>
+
+          {statsLoading ? (
+            <div className="cw-loading">Loading analytics…</div>
+          ) : (
+            <div className="cw-panels-grid">
+
+              {/* Panel 1 — RO Submissions */}
+              <div className="cw-panel">
+                <div className="cw-panel-top">
+                  <div className="cw-panel-title">RO Submissions</div>
+                  <div className="cw-panel-big">
+                    {statsData ? statsData.submissions.reduce((s, b) => s + b.count, 0) : 0}
+                  </div>
+                </div>
+                {statsData && statsData.submissions.some(b => b.count > 0) ? (
+                  renderLineChart(
+                    statsData.submissions.map(b => ({ label: b.label, value: b.count })),
+                    "#4f8cff",
+                  )
+                ) : (
+                  <div className="cw-panel-empty">No submissions in this period</div>
+                )}
+              </div>
+
+              {/* Panel 2 — Explorer Pageviews */}
+              <div className="cw-panel">
+                <div className="cw-panel-top">
+                  <div className="cw-panel-title">Explorer Pageviews</div>
+                  <div className="cw-panel-big" style={{ color: "var(--accent2)" }}>
+                    {statsData ? statsData.pageviews.reduce((s, b) => s + b.count, 0) : 0}
+                  </div>
+                </div>
+                {statsData && statsData.pageviews.some(b => b.count > 0) ? (
+                  renderLineChart(
+                    statsData.pageviews.map(b => ({ label: b.label, value: b.count })),
+                    "#2eddaa",
+                  )
+                ) : (
+                  <div className="cw-panel-empty">Pageview tracking starts now</div>
+                )}
+              </div>
+
+              {/* Panel 3 — ROs by Type (stacked horizontal bars) */}
+              <div className="cw-panel">
+                <div className="cw-panel-top">
+                  <div className="cw-panel-title">ROs by Type</div>
+                </div>
+                {statsData && statsData.typeBreakdown.some(b => Object.keys(b.counts).length > 0) ? (() => {
+                  const allTypes = Object.keys(TYPE_COLORS) as ROType[];
+                  const activeTypes = allTypes.filter(t =>
+                    statsData.typeBreakdown.some(b => (b.counts[t] ?? 0) > 0)
+                  );
+                  const maxBar = Math.max(
+                    ...statsData.typeBreakdown.map(b =>
+                      Object.values(b.counts).reduce((s, v) => s + (v ?? 0), 0)
+                    ),
+                    1,
+                  );
+                  const barH = 14;
+                  const gap = 3;
+                  const pad = { left: 6, right: 10, top: 4, bottom: 24 };
+                  const w = 320;
+                  // Only show non-empty buckets for readability
+                  const buckets = statsData.typeBreakdown;
+                  const svgH = pad.top + buckets.length * (barH + gap) + pad.bottom;
+                  const barW = w - pad.left - pad.right;
+                  const labelInterval = Math.max(1, Math.floor(buckets.length / 6));
+
+                  return (
+                    <>
+                      <svg viewBox={`0 0 ${w} ${svgH}`} width="100%" style={{ display: "block" }}>
+                        {buckets.map((bucket, bi) => {
+                          const y = pad.top + bi * (barH + gap);
+                          let xOffset = pad.left;
+                          const total = Object.values(bucket.counts).reduce((s, v) => s + (v ?? 0), 0);
+                          return (
+                            <g key={bi}>
+                              {/* background bar */}
+                              <rect x={pad.left} y={y} width={barW} height={barH} rx={3} fill="#1f2535" />
+                              {allTypes.map(type => {
+                                const count = bucket.counts[type] ?? 0;
+                                if (count === 0) return null;
+                                const segW = (count / maxBar) * barW;
+                                const x = xOffset;
+                                xOffset += segW;
+                                return (
+                                  <rect key={type} x={x} y={y} width={segW} height={barH} rx={3} fill={TYPE_COLORS[type]} opacity={0.85} />
+                                );
+                              })}
+                              {/* x-label below */}
+                              {(bi % labelInterval === 0 || bi === buckets.length - 1) && (
+                                <text x={pad.left + barW / 2} y={y + barH + 10} textAnchor="middle" fill="#4a5580" fontSize={7} fontFamily="'DM Mono', monospace">
+                                  {bucket.label}
+                                </text>
+                              )}
+                            </g>
+                          );
+                        })}
+                      </svg>
+                      <div className="cw-legend-row">
+                        {activeTypes.map(type => (
+                          <div key={type} className="cw-legend-item">
+                            <div className="cw-legend-dot" style={{ background: TYPE_COLORS[type] }} />
+                            {TYPE_LABELS[type]}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })() : (
+                  <div className="cw-panel-empty">No type data in this period</div>
+                )}
+              </div>
+
+              {/* Panel 4 — Mint Rate */}
+              <div className="cw-panel">
+                <div className="cw-panel-top">
+                  <div className="cw-panel-title">Mint Rate</div>
+                  {statsData && (() => {
+                    const totalMinted = statsData.mintRate.reduce((s, b) => s + b.minted, 0);
+                    const totalAll = statsData.mintRate.reduce((s, b) => s + b.total, 0);
+                    const pct = totalAll > 0 ? Math.round((totalMinted / totalAll) * 100) : 0;
+                    return <div className="cw-panel-big" style={{ color: "var(--accent2)" }}>{pct}%</div>;
+                  })()}
+                </div>
+                {statsData && statsData.mintRate.some(b => b.total > 0) ? (
+                  renderLineChart(
+                    statsData.mintRate.map(b => ({
+                      label: b.label,
+                      value: b.total > 0 ? Math.round((b.minted / b.total) * 100) : 0,
+                    })),
+                    "#2eddaa",
+                    320,
+                    120,
+                    true,
+                  )
+                ) : (
+                  <div className="cw-panel-empty">No mint data in this period</div>
+                )}
+              </div>
+
+            </div>
+          )}
+        </div>
+
       </div>
     </>
   );
