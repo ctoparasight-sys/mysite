@@ -37,7 +37,7 @@ const TYPE_LABELS: Record<ROType, string> = {
 
 // ── Confidence → border thickness ────────────────────────────
 
-const CONF_STROKE: Record<ConfidenceLevel, number> = { 1: 0.5, 2: 1.0, 3: 1.5 };
+const CONF_STROKE: Record<ConfidenceLevel, number> = { 1: 0.3, 2: 0.3, 3: 0.3 };
 
 // ── Synthetic test dataset (30 ROs) ──────────────────────────
 
@@ -264,7 +264,7 @@ const css = `
   }
   .ls-legend-minted {
     width: 12px; height: 12px; border-radius: 2px;
-    border: 2px dashed var(--bright); flex-shrink: 0;
+    border: 1px solid var(--bright); flex-shrink: 0;
   }
 
   /* Voronoi cell transitions */
@@ -538,7 +538,7 @@ export default function LandscapePage() {
                       d={voronoiData.voronoi.render()}
                       fill="none"
                       stroke="#1a2035"
-                      strokeWidth={0.5}
+                      strokeWidth={0.3}
                     />
 
                     {/* 3. Voronoi cell paths */}
@@ -559,7 +559,6 @@ export default function LandscapePage() {
                           fillOpacity={fillOpacity}
                           stroke={coord.minted ? "#e8edf8" : color}
                           strokeWidth={sw}
-                          strokeDasharray={coord.minted ? "4 3" : "none"}
                           onMouseMove={(e) => { setHoveredIdx(i); handleMouseMove(e, coord); }}
                           onMouseLeave={() => { setHoveredIdx(null); setTooltip(null); }}
                           onClick={() => {
