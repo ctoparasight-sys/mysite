@@ -324,6 +324,76 @@ const css = `
     display: inline-block;
   }
 
+  /* ── Wallet modal ── */
+  .cw-modal-backdrop {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    animation: cw-fade-in 200ms ease;
+  }
+  @keyframes cw-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  .cw-modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px; width: 400px; max-width: 90vw;
+    animation: cw-modal-up 250ms ease;
+  }
+  @keyframes cw-modal-up {
+    from { opacity: 0; transform: translateY(12px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .cw-modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .cw-modal-title {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-size: 18px; font-weight: 700; color: var(--bright);
+    letter-spacing: -0.3px;
+  }
+  .cw-modal-close {
+    background: none; border: none; color: var(--subtle);
+    font-size: 20px; cursor: pointer; padding: 4px 8px;
+    border-radius: 6px; transition: all var(--t); line-height: 1;
+  }
+  .cw-modal-close:hover { color: var(--bright); background: rgba(255,255,255,0.05); }
+
+  .cw-modal-sub {
+    font-size: 13px; color: var(--subtle); margin-bottom: 24px; line-height: 1.5;
+  }
+
+  .cw-wallet-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .cw-wallet-option {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px; border-radius: 12px;
+    background: var(--surface2); border: 1px solid var(--border);
+    text-decoration: none; color: var(--text);
+    transition: all var(--t); cursor: pointer;
+  }
+  .cw-wallet-option:hover {
+    border-color: rgba(79,140,255,0.35);
+    background: rgba(79,140,255,0.06);
+    transform: translateX(3px);
+  }
+  .cw-wallet-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .cw-wallet-info { flex: 1; min-width: 0; }
+  .cw-wallet-name {
+    font-size: 14px; font-weight: 600; color: var(--bright);
+    margin-bottom: 2px;
+  }
+  .cw-wallet-desc {
+    font-size: 11px; color: var(--subtle); font-family: var(--mono);
+  }
+  .cw-wallet-arrow { color: var(--subtle); font-size: 14px; transition: color var(--t); }
+  .cw-wallet-option:hover .cw-wallet-arrow { color: var(--accent); }
+
   /* ── Animations ── */
   @keyframes cw-up { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
   .cw-fade-up { animation: cw-up 600ms ease both; }
@@ -357,12 +427,22 @@ const RO_TYPES = [
   },
 ];
 
+// ── Wallets ──────────────────────────────────────────────────
+
+const WALLETS = [
+  { name: "MetaMask",       desc: "The most popular browser wallet",    icon: "🦊", url: "https://metamask.io/download/", bg: "#f6851b" },
+  { name: "Coinbase Wallet", desc: "Simple and beginner-friendly",      icon: "🔵", url: "https://www.coinbase.com/wallet", bg: "#0052ff" },
+  { name: "Rainbow",        desc: "Beautiful mobile-first wallet",      icon: "🌈", url: "https://rainbow.me/",           bg: "#6b4ce6" },
+  { name: "Rabby",          desc: "Security-focused with tx previews",  icon: "🐰", url: "https://rabby.io/",             bg: "#7c6af2" },
+];
+
 // ── Component ─────────────────────────────────────────────────
 
 export default function HomePage() {
   const [address, setAddress]   = useState<string | null>(null);
   const [status, setStatus]     = useState<"idle" | "loading" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const [walletModal, setWalletModal] = useState(false);
 
   // Restore session on load
   useEffect(() => {
@@ -445,12 +525,10 @@ export default function HomePage() {
         <div className="cw-nav-right">
           <div className="cw-nav-links">
             <a href="/explore" className="cw-btn cw-btn-ghost cw-btn-sm">Explore</a>
-            <a
-              href="https://coinbase.com/wallet"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => setWalletModal(true)}
               className="cw-btn cw-btn-ghost cw-btn-sm"
-            >Get a wallet ↗</a>
+            >Get a wallet</button>
           </div>
           {address ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -519,8 +597,8 @@ export default function HomePage() {
             </div>
             <div className="cw-hero-wallet-note cw-fade-up delay-4">
               No account needed. No password.&nbsp;·&nbsp;
-              <a href="https://coinbase.com/wallet" target="_blank" rel="noopener noreferrer">
-                Get a wallet in 2 minutes ↗
+              <a href="#" onClick={(e) => { e.preventDefault(); setWalletModal(true); }}>
+                Get a wallet in 2 minutes
               </a>
             </div>
             {status === "error" && (
@@ -605,11 +683,44 @@ export default function HomePage() {
           <a href="/explore">Feed</a>
           <a href="/upload">Submit RO</a>
           <a
-            href="https://coinbase.com/wallet"
-            target="_blank" rel="noopener noreferrer"
+            href="#"
+            onClick={(e) => { e.preventDefault(); setWalletModal(true); }}
           >Get a wallet</a>
         </div>
       </footer>
+
+      {/* ── Wallet modal ── */}
+      {walletModal && (
+        <div className="cw-modal-backdrop" onClick={() => setWalletModal(false)}>
+          <div className="cw-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cw-modal-header">
+              <span className="cw-modal-title">Get a wallet</span>
+              <button className="cw-modal-close" onClick={() => setWalletModal(false)}>×</button>
+            </div>
+            <p className="cw-modal-sub">
+              Pick any wallet to get started. No account needed — just install and you're ready to sign in.
+            </p>
+            <div className="cw-wallet-list">
+              {WALLETS.map((w) => (
+                <a
+                  key={w.name}
+                  href={w.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cw-wallet-option"
+                >
+                  <div className="cw-wallet-icon" style={{ background: w.bg + "18" }}>{w.icon}</div>
+                  <div className="cw-wallet-info">
+                    <div className="cw-wallet-name">{w.name}</div>
+                    <div className="cw-wallet-desc">{w.desc}</div>
+                  </div>
+                  <span className="cw-wallet-arrow">↗</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
