@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#080b11"/>
+  <text x="256" y="310" text-anchor="middle" font-family="'Space Grotesk', system-ui, sans-serif" font-size="320" font-weight="700" letter-spacing="-20">
+    <tspan fill="#ffffff">c</tspan><tspan fill="#4f8cff" font-style="italic">w</tspan>
+  </text>
+</svg>
