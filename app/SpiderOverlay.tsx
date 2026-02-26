@@ -68,7 +68,7 @@ function getExitPoint(avoidEdge: Edge): { x: number; y: number } {
   }
 }
 
-function getElementCenter(selector: string): { x: number; y: number } | null {
+function getElementCenter(selector: string): { x: number; y: number; el: Element } | null {
   const els = Array.from(document.querySelectorAll(selector));
   if (els.length === 0) return null;
   // Shuffle and pick the first element that's in the viewport
@@ -76,10 +76,50 @@ function getElementCenter(selector: string): { x: number; y: number } | null {
   for (const el of shuffled) {
     const r = el.getBoundingClientRect();
     if (r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth) {
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, el };
     }
   }
   return null;
+}
+
+function deriveLabel(el: Element): string {
+  // RO cards in explore feed — <a href="/ro/{id}" class="cw-card">
+  const roAnchor = el.closest("a[href^='/ro/']") ?? (el.matches("a[href^='/ro/']") ? el : null);
+  if (roAnchor) {
+    const id = (roAnchor.getAttribute("href") ?? "").replace("/ro/", "");
+    if (id) return `RO ${id.slice(-4)} read by Agent`;
+  }
+
+  // Stats bar — .cw-stat with .cw-stat-label inside
+  const statLabel = el.querySelector(".cw-stat-label");
+  if (statLabel?.textContent) return `Reading ${statLabel.textContent.trim().toLowerCase()}`;
+
+  // Type breakdown bars — .cw-tbar with .cw-tbar-name inside
+  const tbarName = el.querySelector(".cw-tbar-name");
+  if (tbarName?.textContent) return `Analyzing ${tbarName.textContent.trim()}`;
+
+  // Landscape items — .cw-land-item text content
+  if (el.classList.contains("cw-land-item")) {
+    const text = el.textContent?.trim();
+    if (text) return `Processing: ${text.slice(0, 28)}${text.length > 28 ? "\u2026" : ""}`;
+  }
+
+  // Landing page hero headline
+  if (el.classList.contains("cw-hero-headline")) return "Scanning network";
+
+  // Landing page section labels
+  if (el.classList.contains("cw-section-label")) {
+    const text = el.textContent?.trim();
+    if (text) return `Reading ${text.toLowerCase()}`;
+  }
+
+  // Landing page RO type cards
+  if (el.classList.contains("cw-ro-card")) {
+    const title = el.querySelector("h3");
+    if (title?.textContent) return `Inspecting ${title.textContent.trim()}`;
+  }
+
+  return "Scanning\u2026";
 }
 
 // ── CSS ────────────────────────────────────────────────────
@@ -132,7 +172,8 @@ const spiderCss = `
   .cw-spider-bubble {
     position: absolute; bottom: calc(100% + 12px); left: 50%;
     transform: translateX(-50%);
-    background: #cc2233; color: #fff;
+    background: transparent; color: #aa2838;
+    border: 1px solid #aa2838;
     font-family: 'DM Mono', monospace;
     font-size: 10px; font-weight: 500;
     padding: 5px 10px; border-radius: 6px;
@@ -142,7 +183,7 @@ const spiderCss = `
   .cw-spider-bubble::after {
     content: ''; position: absolute; top: 100%; left: 50%;
     transform: translateX(-50%);
-    border: 5px solid transparent; border-top-color: #cc2233;
+    border: 5px solid transparent; border-top-color: #aa2838;
   }
   .cw-spider-bubble.visible { opacity: 1; }
   @keyframes cw-sensor-pulse {
@@ -207,7 +248,7 @@ const SpiderOverlay = forwardRef<SpiderOverlayHandle, Props>(
         const sels = [...patrolRef.current].sort(() => Math.random() - 0.5);
         for (const sel of sels) {
           const target = getElementCenter(sel);
-          if (target) { spawn(target, "Scanning..."); return; }
+          if (target) { spawn(target, deriveLabel(target.el)); return; }
         }
       };
       const scheduleNext = (): ReturnType<typeof setTimeout> => {
