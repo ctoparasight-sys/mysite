@@ -10,6 +10,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { ROSummary, ROType, ConfidenceLevel } from "@/types/ro";
 import type { LandscapeReport } from "@/types/landscape";
+import SpiderOverlay, { type SpiderOverlayHandle } from "../SpiderOverlay";
 
 // ── Label / color maps ────────────────────────────────────────
 
@@ -353,6 +354,7 @@ const css = `
     .cw-stats { grid-template-columns: repeat(2, 1fr); }
     .cw-stat { border-bottom: 1px solid var(--border); }
   }
+
 `;
 
 // ── Component ─────────────────────────────────────────────────
@@ -370,6 +372,12 @@ export default function ExplorePage() {
   const [landscape, setLandscape] = useState<LandscapeReport | null>(null);
   const [landscapeLoading, setLandscapeLoading] = useState(true);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Spider agent
+  const spiderRef = useRef<SpiderOverlayHandle>(null);
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  const initialLoadDoneRef = useRef(false);
+  const pollingRef = useRef(false);
 
   // Fetch all ROs from the real API
   const fetchROs = useCallback(async () => {
@@ -408,6 +416,50 @@ export default function ExplorePage() {
       .then(data => setLandscape(data as LandscapeReport))
       .catch(() => setLandscape(null))
       .finally(() => setLandscapeLoading(false));
+  }, []);
+
+  // Spawn spider for newest RO after initial load
+  useEffect(() => {
+    if (loading || initialLoadDoneRef.current || allROs.length === 0) return;
+    initialLoadDoneRef.current = true;
+    allROs.forEach(ro => knownIdsRef.current.add(ro.id));
+    const newestId = allROs[0]?.id;
+    if (newestId) {
+      setTimeout(() => {
+        spiderRef.current?.spawnFor(
+          `a[href="/ro/${newestId}"] .cw-card-title`,
+          `RO ${newestId.slice(-4)} read by Agent`,
+        );
+      }, 600);
+    }
+  }, [loading, allROs]);
+
+  // Poll for new ROs every 30s
+  useEffect(() => {
+    const iv = setInterval(async () => {
+      if (pollingRef.current) return;
+      pollingRef.current = true;
+      try {
+        const res = await fetch("/api/ro/list?limit=50&sort=newest");
+        const json = await res.json();
+        const fresh: ROSummary[] = json.ros ?? [];
+        const newIds = fresh.filter(ro => !knownIdsRef.current.has(ro.id)).map(ro => ro.id);
+        fresh.forEach(ro => knownIdsRef.current.add(ro.id));
+        if (newIds.length > 0) {
+          setAllROs(fresh);
+          newIds.forEach((id, i) => {
+            setTimeout(() => {
+              spiderRef.current?.spawnFor(
+                `a[href="/ro/${id}"] .cw-card-title`,
+                `RO ${id.slice(-4)} read by Agent`,
+              );
+            }, i * 500);
+          });
+        }
+      } catch { /* ignore polling errors */ }
+      pollingRef.current = false;
+    }, 30000);
+    return () => clearInterval(iv);
   }, []);
 
   // Client-side filtering (search + conf + comm + mint)
@@ -463,6 +515,10 @@ export default function ExplorePage() {
   return (
     <>
       <style>{css}</style>
+      <SpiderOverlay
+        ref={spiderRef}
+        patrolSelectors={[".cw-card", ".cw-stat", ".cw-tbar", ".cw-land-item"]}
+      />
       <div className="cw-page cw-fade">
 
         {/* Topbar */}
@@ -749,6 +805,7 @@ export default function ExplorePage() {
             )}
 
           </div>
+
         </div>
       </div>
     </>

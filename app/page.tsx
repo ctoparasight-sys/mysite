@@ -15,6 +15,7 @@
 import { useEffect, useState } from "react";
 import { SiweMessage } from "siwe";
 import { getAddress } from "ethers";
+import SpiderOverlay from "./SpiderOverlay";
 
 // ── Styles ────────────────────────────────────────────────────
 
@@ -516,6 +517,9 @@ export default function HomePage() {
   return (
     <>
       <style>{css}</style>
+      <SpiderOverlay
+        patrolSelectors={[".cw-ro-card", ".cw-stat", ".cw-hero-headline", ".cw-section-label"]}
+      />
       <div className="cw-blob cw-blob-1" />
       <div className="cw-blob cw-blob-2" />
 
