@@ -2,7 +2,7 @@
 // @ts-ignore
 import { createWalletClient, custom, parseAbi } from "viem";
 // @ts-ignore
-import { sepolia } from "viem/chains";
+import { mainnet } from "viem/chains";
 
 // =================================================================
 // app/ro/[id]/page.tsx — Research Object Detail Page
@@ -427,14 +427,14 @@ export default function RODetailPage() {
       const accounts = await ethereum.request({ method: "eth_requestAccounts" });
       const account = accounts[0] as `0x${string}`;
       try {
-        await ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0xaa36a7" }] });
+        await ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x1" }] });
       } catch (e: any) {
-        if (e.code === 4902) await ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0xaa36a7", chainName: "Sepolia", nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://rpc.sepolia.org"], blockExplorerUrls: ["https://sepolia.etherscan.io"] }] });
+        if (e.code === 4902) await ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x1", chainName: "Ethereum", nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://eth.llamarpc.com"], blockExplorerUrls: ["https://etherscan.io"] }] });
       }
-      const client = createWalletClient({ account, chain: sepolia, transport: custom(ethereum) });
+      const client = createWalletClient({ account, chain: mainnet, transport: custom(ethereum) });
       setMintState("mining");
       const txHash = await client.writeContract({ address: CONTRACT, abi: ABI, functionName: "mintRO", args: [ro.id, ro.contentHash] });
-      await fetch("/api/ro/mint", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roId: ro.id, txHash, chainId: 11155111 }) });
+      await fetch("/api/ro/mint", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roId: ro.id, txHash, chainId: 1 }) });
       setMintState("done");
       const updated = await fetch(`/api/ro/submit?id=${ro.id}`).then(r => r.json());
       if (updated.ro) setRO(updated.ro);
@@ -698,7 +698,7 @@ export default function RODetailPage() {
                   <div style={{ marginBottom: 6 }}>Token ID: {ro.tokenId ?? "—"}</div>
                   <div style={{ marginBottom: 6 }}>Chain: {ro.chainId ?? "—"}</div>
                   <div style={{ wordBreak: "break-all" }}>
-                    Tx: <a href={`https://sepolia.etherscan.io/tx/${ro.txHash}`} target="_blank" rel="noopener noreferrer">
+                    Tx: <a href={`https://etherscan.io/tx/${ro.txHash}`} target="_blank" rel="noopener noreferrer">
                       {ro.txHash.slice(0, 10)}…{ro.txHash.slice(-6)} ↗
                     </a>
                   </div>

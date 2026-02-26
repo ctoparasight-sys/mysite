@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     if (ro.walletAddress.toLowerCase() !== session.address.toLowerCase())
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
-    await kv.set(`ro:${roId}`, { ...ro, txHash, chainId: chainId ?? 11155111 });
+    await kv.set(`ro:${roId}`, { ...ro, txHash, chainId: chainId ?? 1 });
 
     return NextResponse.json({ success: true, txHash, chainId });
   } catch (err) {
