@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { ROSummary, ROType, ConfidenceLevel } from "@/types/ro";
+import type { LandscapeReport } from "@/types/landscape";
 
 // ── Label / color maps ────────────────────────────────────────
 
@@ -366,6 +367,8 @@ export default function ExplorePage() {
   const [mintFilter, setMintFilter]   = useState(false);
   const [sort, setSort]               = useState<"newest" | "confidence" | "relationships">("newest");
   const [sidebarSearch, setSidebarSearch] = useState("");
+  const [landscape, setLandscape] = useState<LandscapeReport | null>(null);
+  const [landscapeLoading, setLandscapeLoading] = useState(true);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Fetch all ROs from the real API
@@ -395,6 +398,16 @@ export default function ExplorePage() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Fetch AI landscape report
+  useEffect(() => {
+    setLandscapeLoading(true);
+    fetch("/api/ro/landscape")
+      .then(r => r.json())
+      .then(data => setLandscape(data as LandscapeReport))
+      .catch(() => setLandscape(null))
+      .finally(() => setLandscapeLoading(false));
   }, []);
 
   // Client-side filtering (search + conf + comm + mint)
@@ -623,19 +636,72 @@ export default function ExplorePage() {
           {/* ── Sidebar ── */}
           <div className="cw-sidebar">
 
-            {/* AI Landscape — static for now, will be wired to /api/ro/landscape */}
+            {/* AI Landscape */}
             <div className="cw-landscape">
               <div className="cw-land-label">Field Landscape</div>
-              <div className="cw-land-hl">"Early-stage feed — submit more ROs to generate an AI landscape report"</div>
-              <div className="cw-land-body">
-                The landscape AI synthesizes patterns across submitted research objects to identify hot areas, gaps, and replication targets. It activates once enough ROs are present.
-              </div>
-              <div className="cw-land-sec">
-                <div className="cw-land-sec-title">How it works</div>
-                <div className="cw-land-item hot">Submit findings, replications, negative results</div>
-                <div className="cw-land-item hot">AI clusters by topic, species, disease area</div>
-                <div className="cw-land-item rep">Landscape report updates continuously</div>
-              </div>
+              {landscapeLoading ? (
+                <div style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--subtle)", animation: "cw-pulse 1.5s ease infinite" }}>
+                  Analyzing research landscape…
+                </div>
+              ) : landscape && landscape.status === "ok" ? (
+                <>
+                  <div className="cw-land-hl">{`"${landscape.headline}"`}</div>
+                  <div className="cw-land-body">{landscape.summary}</div>
+
+                  {landscape.hotAreas.length > 0 && (
+                    <div className="cw-land-sec">
+                      <div className="cw-land-sec-title">Hot Areas</div>
+                      {landscape.hotAreas.map((item, i) => (
+                        <div key={i} className="cw-land-item hot" title={item.detail}>{item.label}</div>
+                      ))}
+                    </div>
+                  )}
+
+                  {landscape.gaps.length > 0 && (
+                    <div className="cw-land-sec">
+                      <div className="cw-land-sec-title">Knowledge Gaps</div>
+                      {landscape.gaps.map((item, i) => (
+                        <div key={i} className="cw-land-item gap" title={item.detail}>{item.label}</div>
+                      ))}
+                    </div>
+                  )}
+
+                  {landscape.replicationTargets.length > 0 && (
+                    <div className="cw-land-sec">
+                      <div className="cw-land-sec-title">Replication Targets</div>
+                      {landscape.replicationTargets.map((item, i) => (
+                        <div key={i} className="cw-land-item rep" title={item.detail}>{item.label}</div>
+                      ))}
+                    </div>
+                  )}
+
+                  {landscape.contradictions.length > 0 && (
+                    <div className="cw-land-sec">
+                      <div className="cw-land-sec-title">Contradictions</div>
+                      {landscape.contradictions.map((item, i) => (
+                        <div key={i} className="cw-land-item" style={{ color: "var(--warn)" }} title={item.detail}>{item.label}</div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--subtle)", marginTop: 12, textAlign: "right" }}>
+                    {landscape.roCount} ROs analyzed
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="cw-land-hl">"Early-stage feed — submit more ROs to generate an AI landscape report"</div>
+                  <div className="cw-land-body">
+                    The landscape AI synthesizes patterns across submitted research objects to identify hot areas, gaps, and replication targets. It activates once enough ROs are present.
+                  </div>
+                  <div className="cw-land-sec">
+                    <div className="cw-land-sec-title">How it works</div>
+                    <div className="cw-land-item hot">Submit findings, replications, negative results</div>
+                    <div className="cw-land-item hot">AI clusters by topic, species, disease area</div>
+                    <div className="cw-land-item rep">Landscape report updates continuously</div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Type breakdown */}
