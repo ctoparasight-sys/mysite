@@ -529,6 +529,7 @@ export default function HomePage() {
         <div className="cw-nav-right">
           <div className="cw-nav-links">
             <a href="/explore" className="cw-btn cw-btn-ghost cw-btn-sm">Explore</a>
+            <a href="/bounties" className="cw-btn cw-btn-ghost cw-btn-sm">Bounties</a>
             <button
               onClick={() => setWalletModal(true)}
               className="cw-btn cw-btn-ghost cw-btn-sm"

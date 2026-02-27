@@ -28,9 +28,17 @@ export type { IERC165 } from "./@openzeppelin/contracts/utils/introspection/IERC
 export { IERC165__factory } from "./factories/@openzeppelin/contracts/utils/introspection/IERC165__factory";
 export type { SafeCast } from "./@openzeppelin/contracts/utils/math/SafeCast";
 export { SafeCast__factory } from "./factories/@openzeppelin/contracts/utils/math/SafeCast__factory";
+export type { ReentrancyGuard } from "./@openzeppelin/contracts/utils/ReentrancyGuard";
+export { ReentrancyGuard__factory } from "./factories/@openzeppelin/contracts/utils/ReentrancyGuard__factory";
 export type { Strings } from "./@openzeppelin/contracts/utils/Strings";
 export { Strings__factory } from "./factories/@openzeppelin/contracts/utils/Strings__factory";
 export type { CarrierwaveRO } from "./contracts/CarrierwaveRO";
 export { CarrierwaveRO__factory } from "./factories/contracts/CarrierwaveRO__factory";
+export type { CarrierwaveROv2 } from "./contracts/CarrierwaveROv2";
+export { CarrierwaveROv2__factory } from "./factories/contracts/CarrierwaveROv2__factory";
+export type { CWBountyPool } from "./contracts/CWBountyPool";
+export { CWBountyPool__factory } from "./factories/contracts/CWBountyPool__factory";
+export type { CWTreasury } from "./contracts/CWTreasury";
+export { CWTreasury__factory } from "./factories/contracts/CWTreasury__factory";
 export type { Lock } from "./contracts/Lock";
 export { Lock__factory } from "./factories/contracts/Lock__factory";

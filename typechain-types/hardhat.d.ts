@@ -58,6 +58,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.SafeCast__factory>;
     getContractFactory(
+      name: "ReentrancyGuard",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ReentrancyGuard__factory>;
+    getContractFactory(
       name: "Strings",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Strings__factory>;
@@ -65,6 +69,18 @@ declare module "hardhat/types/runtime" {
       name: "CarrierwaveRO",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.CarrierwaveRO__factory>;
+    getContractFactory(
+      name: "CarrierwaveROv2",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.CarrierwaveROv2__factory>;
+    getContractFactory(
+      name: "CWBountyPool",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.CWBountyPool__factory>;
+    getContractFactory(
+      name: "CWTreasury",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.CWTreasury__factory>;
     getContractFactory(
       name: "Lock",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -126,6 +142,11 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.SafeCast>;
     getContractAt(
+      name: "ReentrancyGuard",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ReentrancyGuard>;
+    getContractAt(
       name: "Strings",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -135,6 +156,21 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.CarrierwaveRO>;
+    getContractAt(
+      name: "CarrierwaveROv2",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.CarrierwaveROv2>;
+    getContractAt(
+      name: "CWBountyPool",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.CWBountyPool>;
+    getContractAt(
+      name: "CWTreasury",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.CWTreasury>;
     getContractAt(
       name: "Lock",
       address: string | ethers.Addressable,
@@ -186,6 +222,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.SafeCast>;
     deployContract(
+      name: "ReentrancyGuard",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ReentrancyGuard>;
+    deployContract(
       name: "Strings",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.Strings>;
@@ -193,6 +233,18 @@ declare module "hardhat/types/runtime" {
       name: "CarrierwaveRO",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.CarrierwaveRO>;
+    deployContract(
+      name: "CarrierwaveROv2",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.CarrierwaveROv2>;
+    deployContract(
+      name: "CWBountyPool",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.CWBountyPool>;
+    deployContract(
+      name: "CWTreasury",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.CWTreasury>;
     deployContract(
       name: "Lock",
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -254,6 +306,11 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.SafeCast>;
     deployContract(
+      name: "ReentrancyGuard",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ReentrancyGuard>;
+    deployContract(
       name: "Strings",
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -263,6 +320,21 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.CarrierwaveRO>;
+    deployContract(
+      name: "CarrierwaveROv2",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.CarrierwaveROv2>;
+    deployContract(
+      name: "CWBountyPool",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.CWBountyPool>;
+    deployContract(
+      name: "CWTreasury",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.CWTreasury>;
     deployContract(
       name: "Lock",
       args: any[],

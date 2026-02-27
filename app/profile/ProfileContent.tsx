@@ -11,6 +11,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import type { ROSummary, ROType, ConfidenceLevel } from "@/types/ro";
+import type { ScientistProfile } from "@/types/bounty";
 
 // ── Maps ──────────────────────────────────────────────────────
 
@@ -307,6 +308,26 @@ const css = `
   }
   @keyframes pr-toast-in { from { opacity:0; transform: translateX(-50%) translateY(8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
 
+  /* Scientist profile card */
+  .pr-sci {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); padding: 18px 22px; margin-bottom: 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+  }
+  .pr-sci-label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--subtle); margin-bottom: 4px;
+  }
+  .pr-sci-val { font-size: 14px; color: var(--bright); }
+  .pr-sci-link {
+    padding: 6px 14px; border-radius: var(--r);
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    border: 1px solid rgba(79,140,255,0.3); background: rgba(79,140,255,0.06);
+    text-decoration: none; white-space: nowrap;
+  }
+  .pr-sci-link:hover { border-color: var(--accent); background: rgba(79,140,255,0.12); }
+
   @keyframes pr-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
   .pr-fade { animation: pr-in 350ms ease both; }
 `;
@@ -322,6 +343,7 @@ export default function ProfileContent() {
   const [loading, setLoading]       = useState(true);
   const [typeFilter, setTypeFilter] = useState<ROType | "">("");
   const [copied, setCopied]         = useState(false);
+  const [scientistProfile, setScientistProfile] = useState<ScientistProfile | null>(null);
 
   // Resolve which wallet to show
   const targetWallet = walletParam ?? myAddress;
@@ -343,6 +365,15 @@ export default function ProfileContent() {
       .then(d => setROs(d.ros ?? []))
       .catch(() => setROs([]))
       .finally(() => setLoading(false));
+  }, [targetWallet]);
+
+  // Fetch scientist profile
+  useEffect(() => {
+    if (!targetWallet) return;
+    fetch(`/api/scientist/register?address=${targetWallet}`)
+      .then(r => r.json())
+      .then(d => { if (d.profile) setScientistProfile(d.profile); })
+      .catch(() => {});
   }, [targetWallet]);
 
   function copyProfileUrl() {
@@ -461,6 +492,25 @@ export default function ProfileContent() {
             <div className="pr-stat-label">Avg<br/>Confidence</div>
           </div>
         </div>
+
+        {/* Scientist profile */}
+        {!loading && scientistProfile && (
+          <div className="pr-sci">
+            <div>
+              <div className="pr-sci-label">Registered Scientist</div>
+              <div className="pr-sci-val">{scientistProfile.institutionName}</div>
+              <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--subtle)", marginTop: 4 }}>
+                Institution split: {scientistProfile.institutionSplitBps / 100}%
+              </div>
+            </div>
+            <a href="/bounties" className="pr-sci-link">Browse Bounties</a>
+          </div>
+        )}
+        {!loading && !scientistProfile && isOwn && (
+          <div className="pr-sci" style={{ justifyContent: "center" }}>
+            <a href="/register" className="pr-sci-link">Register as Scientist to claim bounties</a>
+          </div>
+        )}
 
         {/* Type breakdown */}
         {!loading && typeBreakdown.length > 0 && (

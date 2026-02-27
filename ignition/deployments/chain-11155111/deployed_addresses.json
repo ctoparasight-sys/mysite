@@ -1,3 +1,6 @@
 {
-  "CarrierwaveROModule#CarrierwaveRO": "0xbbf8A6899797139dAbDD717fc4ac8e4A2b38d10f"
+  "CarrierwaveROModule#CarrierwaveRO": "0xbbf8A6899797139dAbDD717fc4ac8e4A2b38d10f",
+  "TreasuryAndROModule#CWTreasury": "0x852eD1fFbc473e7353D793F9FffAFbC24FAf907D",
+  "TreasuryAndROModule#CarrierwaveROv2": "0xB93A8033883f7d9050bbfabEf35bD6a7D09d834a",
+  "BountyPoolModule#CWBountyPool": "0xEe7c58E02387548f7628e467d862483Ebb285e7f"
 }

@@ -1,8 +1,13 @@
 "use client";
 // @ts-ignore
-import { createWalletClient, custom, parseAbi } from "viem";
+import { createWalletClient, createPublicClient, custom, http, parseAbi, formatEther } from "viem";
 // @ts-ignore
-import { mainnet } from "viem/chains";
+import { mainnet, sepolia } from "viem/chains";
+
+const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID || "1");
+const viemChain = CHAIN_ID === 11155111 ? sepolia : mainnet;
+const hexChainId = `0x${CHAIN_ID.toString(16)}` as const;
+const explorerBase = CHAIN_ID === 11155111 ? "https://sepolia.etherscan.io" : "https://etherscan.io";
 
 // =================================================================
 // app/ro/[id]/page.tsx — Research Object Detail Page
@@ -396,6 +401,7 @@ export default function RODetailPage() {
   const [myAddress, setMyAddress] = useState<string | null>(null);
   const [mintState, setMintState]   = useState<"idle"|"waiting"|"mining"|"done"|"error">("idle");
   const [mintError, setMintError]   = useState("");
+  const [mintFee, setMintFee]       = useState<bigint | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -416,25 +422,41 @@ export default function RODetailPage() {
     });
   }, []);
 
+  useEffect(() => {
+    const CONTRACT = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
+    if (!CONTRACT) return;
+    const publicClient = createPublicClient({ chain: viemChain, transport: http() });
+    const feeAbi = parseAbi(["function mintFee() view returns (uint256)"]);
+    publicClient.readContract({ address: CONTRACT, abi: feeAbi, functionName: "mintFee" })
+      .then((fee: bigint) => setMintFee(fee))
+      .catch(() => {}); // v1 contract won't have mintFee — leave null
+  }, []);
+
   async function handleMint() {
     if (!ro) return;
     const ethereum = (window as any).ethereum;
     if (!ethereum) { setMintError("No wallet detected."); setMintState("error"); return; }
     const CONTRACT = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`;
-    const ABI = parseAbi(["function mintRO(string calldata roId, string calldata contentHash) external returns (uint256)"]);
+    const ABI = parseAbi([
+      "function mintRO(string calldata roId, string calldata contentHash) external payable returns (uint256)",
+      "function mintFee() view returns (uint256)",
+    ]);
     try {
       setMintState("waiting"); setMintError("");
       const accounts = await ethereum.request({ method: "eth_requestAccounts" });
       const account = accounts[0] as `0x${string}`;
       try {
-        await ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x1" }] });
+        await ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hexChainId }] });
       } catch (e: any) {
-        if (e.code === 4902) await ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x1", chainName: "Ethereum", nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://eth.llamarpc.com"], blockExplorerUrls: ["https://etherscan.io"] }] });
+        if (e.code === 4902) await ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: hexChainId, chainName: viemChain.name, nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }, rpcUrls: [viemChain.rpcUrls.default.http[0]], blockExplorerUrls: [explorerBase] }] });
       }
-      const client = createWalletClient({ account, chain: mainnet, transport: custom(ethereum) });
+      // Read mint fee from contract
+      const publicClient = createPublicClient({ chain: viemChain, transport: custom(ethereum) });
+      const fee = await publicClient.readContract({ address: CONTRACT, abi: ABI, functionName: "mintFee" }) as bigint;
+      const client = createWalletClient({ account, chain: viemChain, transport: custom(ethereum) });
       setMintState("mining");
-      const txHash = await client.writeContract({ address: CONTRACT, abi: ABI, functionName: "mintRO", args: [ro.id, ro.contentHash] });
-      await fetch("/api/ro/mint", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roId: ro.id, txHash, chainId: 1 }) });
+      const txHash = await client.writeContract({ address: CONTRACT, abi: ABI, functionName: "mintRO", args: [ro.id, ro.contentHash], value: fee });
+      await fetch("/api/ro/mint", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roId: ro.id, txHash, chainId: CHAIN_ID }) });
       setMintState("done");
       const updated = await fetch(`/api/ro/submit?id=${ro.id}`).then(r => r.json());
       if (updated.ro) setRO(updated.ro);
@@ -698,7 +720,7 @@ export default function RODetailPage() {
                   <div style={{ marginBottom: 6 }}>Token ID: {ro.tokenId ?? "—"}</div>
                   <div style={{ marginBottom: 6 }}>Chain: {ro.chainId ?? "—"}</div>
                   <div style={{ wordBreak: "break-all" }}>
-                    Tx: <a href={`https://etherscan.io/tx/${ro.txHash}`} target="_blank" rel="noopener noreferrer">
+                    Tx: <a href={`${explorerBase}/tx/${ro.txHash}`} target="_blank" rel="noopener noreferrer">
                       {ro.txHash.slice(0, 10)}…{ro.txHash.slice(-6)} ↗
                     </a>
                   </div>
@@ -708,13 +730,22 @@ export default function RODetailPage() {
                   <div className="ro-mint-desc">
                     Minting creates an on-chain record of this RO — permanent, immutable, and publicly verifiable. The content hash is stored on-chain.
                   </div>
+                  {mintFee !== null && (
+                    <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--accent2)", marginBottom: 12 }}>
+                      Mint fee: {formatEther(mintFee)} ETH
+                    </div>
+                  )}
                   <button
                     className="ro-mint-btn"
                     disabled={!isOwner || mintState === "waiting" || mintState === "mining"}
                     onClick={handleMint}
                     title={isOwner ? "Mint this RO on-chain" : "Only the submitting wallet can mint"}
                   >
-                    {mintState === "waiting" || mintState === "mining" ? "⏳ Minting…" : `⬡ ${isOwner ? "Mint on-chain" : "Sign in to mint"}`}
+                    {mintState === "waiting" || mintState === "mining"
+                      ? "⏳ Minting…"
+                      : `⬡ ${isOwner
+                          ? `Mint on-chain${mintFee !== null ? ` (${formatEther(mintFee)} ETH)` : ""}`
+                          : "Sign in to mint"}`}
                   </button>
                   {!isOwner && (
                     <div style={{ marginTop: 10, fontFamily: "var(--mono)", fontSize: 10, color: "var(--subtle)", textAlign: "center" }}>
