@@ -564,8 +564,8 @@ export default function HomePage() {
         <div className="cw-hero-eyebrow cw-fade-up">Biological Knowledge Infrastructure</div>
 
         <h1 className="cw-hero-headline cw-fade-up delay-1">
-          Scientific knowledge:<br />
-          <span className="line2">mapped like never before.</span>
+          Scientific knowledge<br />
+          <span className="line2">at an atomic resolution.</span>
         </h1>
 
         <p className="cw-hero-sub cw-fade-up delay-2">
