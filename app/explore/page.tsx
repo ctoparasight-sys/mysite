@@ -656,10 +656,12 @@ export default function ExplorePage() {
   return (
     <>
       <style>{css}</style>
+      {/* SpiderOverlay disabled temporarily
       <SpiderOverlay
         ref={spiderRef}
         patrolSelectors={[".cw-card", ".cw-stat", ".cw-tbar", ".cw-land-item"]}
       />
+      */}
       <div className="cw-page cw-fade">
 
         {/* Topbar */}

@@ -517,9 +517,11 @@ export default function HomePage() {
   return (
     <>
       <style>{css}</style>
+      {/* SpiderOverlay disabled temporarily
       <SpiderOverlay
         patrolSelectors={[".cw-ro-card", ".cw-stat", ".cw-hero-headline", ".cw-section-label"]}
       />
+      */}
       <div className="cw-blob cw-blob-1" />
       <div className="cw-blob cw-blob-2" />
 
