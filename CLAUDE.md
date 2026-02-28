@@ -33,7 +33,7 @@ The core primitive is the **Research Object (RO)**: an atomic unit of scientific
 | Storage | Vercel KV (Redis) + Vercel Blob | |
 | Deployment | Vercel, auto-deploy from GitHub `main` | |
 | Smart contract | Hardhat 2, Solidity 0.8.28, OpenZeppelin | Hardhat 3 was removed — use v2 only |
-| Chain | Ethereum Sepolia testnet (chainId: 11155111) | Mainnet deployment is next |
+| Chain | Ethereum Mainnet (chainId: 1) | Sepolia testnet also available |
 | RPC | Alchemy | `SEPOLIA_RPC_URL` in `.env.local` |
 | Contract interaction | viem | |
 | Graph visualization | d3-force, d3-selection, d3-zoom | Lightweight D3 modules only |
@@ -129,9 +129,9 @@ SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/...
 MAINNET_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/...
 DEPLOYER_PRIVATE_KEY=...              # LOCAL ONLY - never add to Vercel or GitHub
 ETHERSCAN_API_KEY=...                 # LOCAL ONLY - for contract verification
-NEXT_PUBLIC_CONTRACT_ADDRESS=0xB93A8033883f7d9050bbfabEf35bD6a7D09d834a
-NEXT_PUBLIC_BOUNTY_CONTRACT=0xEe7c58E02387548f7628e467d862483Ebb285e7f
-NEXT_PUBLIC_CHAIN_ID=11155111
+NEXT_PUBLIC_CONTRACT_ADDRESS=0xEe7c58E02387548f7628e467d862483Ebb285e7f
+NEXT_PUBLIC_BOUNTY_CONTRACT=0x63d28D915Ab0dF57a86547562d5f4A086d3b2A81
+NEXT_PUBLIC_CHAIN_ID=1
 ANTHROPIC_API_KEY=...                 # For AI landscape engine (Claude Haiku)
 ```
 
@@ -139,26 +139,26 @@ ANTHROPIC_API_KEY=...                 # For AI landscape engine (Claude Haiku)
 
 ## Smart Contracts
 
-All contracts verified on Sepolia Etherscan. Owner: `0xFDD1093EDBECD9f8cC6659F18b0E3c18366432Fd`
+All contracts verified on Etherscan (mainnet + Sepolia). Owner: `0xFDD1093EDBECD9f8cC6659F18b0E3c18366432Fd`
 
 ### CarrierwaveRO (v1)
-**File:** `contracts/CarrierwaveRO.sol` | **Sepolia:** `0xbbf8A6899797139dAbDD717fc4ac8e4A2b38d10f`
+**File:** `contracts/CarrierwaveRO.sol` | **Mainnet:** `0xbbf8A6899797139dAbDD717fc4ac8e4A2b38d10f` | **Sepolia:** `0xbbf8A6899797139dAbDD717fc4ac8e4A2b38d10f`
 - `mintRO(roId, contentHash)` - mints ERC-721 token, one per contentHash
 - `getRecord(tokenId)` - returns on-chain record
 - `totalMinted()` / `setMintingPaused(bool)`
 
 ### CarrierwaveROv2
-**File:** `contracts/CarrierwaveROv2.sol` | **Sepolia:** `0xB93A8033883f7d9050bbfabEf35bD6a7D09d834a`
+**File:** `contracts/CarrierwaveROv2.sol` | **Mainnet:** `0xEe7c58E02387548f7628e467d862483Ebb285e7f` | **Sepolia:** `0xB93A8033883f7d9050bbfabEf35bD6a7D09d834a`
 - Same as v1 but adds `mintFee` sent to CWTreasury on each mint
 
 ### CWTreasury
-**File:** `contracts/CWTreasury.sol` | **Sepolia:** `0x852eD1fFbc473e7353D793F9FffAFbC24FAf907D`
+**File:** `contracts/CWTreasury.sol` | **Mainnet:** `0xB93A8033883f7d9050bbfabEf35bD6a7D09d834a` | **Sepolia:** `0x852eD1fFbc473e7353D793F9FffAFbC24FAf907D`
 - Receives platform fees (mint fees + bounty fees)
 - `distribute()` splits balance to recipients (founder 45%, investor 45%, ops 10%)
 - `setRecipients()` - owner only, must sum to 10000 bps
 
 ### CWBountyPool
-**File:** `contracts/CWBountyPool.sol` | **Sepolia:** `0xEe7c58E02387548f7628e467d862483Ebb285e7f`
+**File:** `contracts/CWBountyPool.sol` | **Mainnet:** `0x63d28D915Ab0dF57a86547562d5f4A086d3b2A81` | **Sepolia:** `0xEe7c58E02387548f7628e467d862483Ebb285e7f`
 - Bounty lifecycle: funders lock ETH, scientists claim with ROs, funders approve, payouts split
 - 2.5% platform fee to CWTreasury (owner-adjustable, max 10%)
 - Automatic scientist/institution split based on self-reported percentage
@@ -253,15 +253,17 @@ Do not introduce Tailwind, CSS modules, or external stylesheets.
 - Wallet profile page at /profile - stats, type breakdown, shareable URL
 - Domain carrierwave.org live on Vercel
 
-**Phase 3 - On-chain (Sepolia)**
-- CarrierwaveRO.sol written, compiled, deployed to Sepolia
-- CarrierwaveROv2.sol with mint fee, deployed to Sepolia
-- CWTreasury.sol for revenue splits, deployed to Sepolia
+**Phase 3 - On-chain (Sepolia + Mainnet)**
+- CarrierwaveRO.sol written, compiled, deployed to Sepolia + Mainnet
+- CarrierwaveROv2.sol with mint fee, deployed to Sepolia + Mainnet
+- CWTreasury.sol for revenue splits, deployed to Sepolia + Mainnet
+- CWBountyPool.sol deployed to Sepolia + Mainnet
+- All contracts verified on both Sepolia and Mainnet Etherscan
 - Mint button wired with viem on detail page
 - Mint API endpoint saves txHash to KV
-- Sepolia Etherscan link shown after mint
-- All contracts verified on Sepolia Etherscan
+- Etherscan links switch automatically based on NEXT_PUBLIC_CHAIN_ID
 - SIWE chainId fix deployed (reads dynamically from eth_chainId)
+- App now live on Ethereum mainnet (chainId: 1)
 
 **Phase 4 - AI landscape engine**
 - POST /api/ro/landscape using Claude Haiku
@@ -296,11 +298,8 @@ Do not introduce Tailwind, CSS modules, or external stylesheets.
 
 ### Next Steps (in order)
 
-1. Deploy contracts to Ethereum mainnet
-   - Update NEXT_PUBLIC_CONTRACT_ADDRESS and NEXT_PUBLIC_CHAIN_ID=1
-   - Update NEXT_PUBLIC_BOUNTY_CONTRACT with mainnet address
-2. Funder dashboard
-3. Phase 6 - reputation, DOI minting, IPFS
+1. Funder dashboard
+2. Phase 6 - reputation, DOI minting, IPFS
 
 ---
 
