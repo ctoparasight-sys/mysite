@@ -58,26 +58,52 @@ The core primitive is the **Research Object (RO)**: an atomic unit of scientific
 │   │       └── page.tsx              <- RO detail page + mint button
 │   ├── profile/
 │   │   ├── page.tsx                  <- Suspense wrapper (required for useSearchParams)
-│   │   └── ProfileContent.tsx        <- Wallet profile page content
+│   │   └── ProfileContent.tsx        <- Wallet profile + scientist profile section
+│   ├── register/
+│   │   └── page.tsx                  <- Scientist registration form
+│   ├── bounties/
+│   │   ├── page.tsx                  <- Bounty listing/browse feed
+│   │   ├── create/
+│   │   │   └── page.tsx              <- Bounty creation form (funders)
+│   │   └── [id]/
+│   │       └── page.tsx              <- Bounty detail + claim/approve/finalize
 │   └── api/
 │       ├── nonce/route.ts            <- SIWE nonce generation
 │       ├── verify/route.ts           <- SIWE signature verification
 │       ├── me/route.ts               <- Returns current session wallet address
 │       ├── logout/route.ts           <- Clears iron-session cookie
-│       └── ro/
-│           ├── submit/route.ts       <- POST: submit RO / GET: fetch by ID
-│           ├── list/route.ts         <- GET: paginated + filtered RO feed
-│           └── mint/route.ts         <- POST: save txHash after on-chain mint
+│       ├── ro/
+│       │   ├── submit/route.ts       <- POST: submit RO / GET: fetch by ID
+│       │   ├── list/route.ts         <- GET: paginated + filtered RO feed
+│       │   └── mint/route.ts         <- POST: save txHash after on-chain mint
+│       ├── scientist/
+│       │   └── register/route.ts     <- POST/GET: scientist profile to/from KV
+│       ├── bounty/
+│       │   ├── create/route.ts       <- POST: save bounty to KV after on-chain creation
+│       │   ├── list/route.ts         <- GET: paginated bounty feed with filters
+│       │   ├── [id]/route.ts         <- GET: single bounty with claims
+│       │   └── finalize/route.ts     <- POST: update bounty after finalize/cancel
+│       └── claim/
+│           ├── submit/route.ts       <- POST: save claim to KV after on-chain submission
+│           └── approve/route.ts      <- POST: update claim after on-chain approval
 ├── contracts/
-│   └── CarrierwaveRO.sol             <- ERC-721 smart contract
+│   ├── CarrierwaveRO.sol             <- ERC-721 RO minting contract
+│   ├── CarrierwaveROv2.sol           <- ERC-721 v2 with mint fee + treasury
+│   ├── CWTreasury.sol                <- Revenue split contract (founder/investor/ops)
+│   └── CWBountyPool.sol              <- Bounty lifecycle + escrow + institutional split
 ├── ignition/
 │   └── modules/
-│       └── CarrierwaveRO.ts          <- Hardhat Ignition deploy script
+│       ├── CarrierwaveRO.ts          <- Ignition deploy: CarrierwaveRO
+│       ├── TreasuryAndRO.ts          <- Ignition deploy: CWTreasury + CarrierwaveROv2
+│       └── BountyPool.ts             <- Ignition deploy: CWBountyPool
+├── scripts/
+│   └── test-bounty-lifecycle.ts      <- Full bounty lifecycle test (Sepolia)
 ├── lib/
 │   └── session.ts                    <- iron-session config (uses SessionOptions)
 ├── types/
-│   └── ro.ts                         <- All TypeScript types for ROs
-├── hardhat.config.ts                 <- Hardhat 2 config with Sepolia network
+│   ├── ro.ts                         <- TypeScript types for ROs
+│   └── bounty.ts                     <- TypeScript types for bounties, claims, scientists
+├── hardhat.config.ts                 <- Hardhat 2 config with optimizer + Etherscan
 ├── CLAUDE.md                         <- This file
 └── .env.local                        <- All secrets (gitignored, never commit)
 ```
@@ -96,35 +122,77 @@ KV_REST_API_URL=...
 KV_REST_API_TOKEN=...
 BLOB_READ_WRITE_TOKEN=...
 SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/...
+MAINNET_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/...
 DEPLOYER_PRIVATE_KEY=...              # LOCAL ONLY - never add to Vercel or GitHub
-NEXT_PUBLIC_CONTRACT_ADDRESS=0xbbf8A6899797139dAbDD717fc4ac8e4A2b38d10f
+ETHERSCAN_API_KEY=...                 # LOCAL ONLY - for contract verification
+NEXT_PUBLIC_CONTRACT_ADDRESS=0xB93A8033883f7d9050bbfabEf35bD6a7D09d834a
+NEXT_PUBLIC_BOUNTY_CONTRACT=0xEe7c58E02387548f7628e467d862483Ebb285e7f
 NEXT_PUBLIC_CHAIN_ID=11155111
+ANTHROPIC_API_KEY=...                 # For AI landscape engine (Claude Haiku)
 ```
 
 ---
 
-## Smart Contract
+## Smart Contracts
 
-**File:** `contracts/CarrierwaveRO.sol`
-**Standard:** ERC-721
-**Deployed on Sepolia:** `0xbbf8A6899797139dAbDD717fc4ac8e4A2b38d10f`
-**Contract owner (founder):** `0xFDD1093EDBECD9f8cC6659F18b0E3c18366432Fd`
+All contracts verified on Sepolia Etherscan. Owner: `0xFDD1093EDBECD9f8cC6659F18b0E3c18366432Fd`
 
-Key functions:
-- `mintRO(string roId, string contentHash)` - mints a token. Only callable by the submitting wallet. One token per contentHash.
-- `getRecord(uint256 tokenId)` - returns full on-chain record
-- `totalMinted()` - returns total minted count
-- `setMintingPaused(bool)` - founder only emergency pause
+### CarrierwaveRO (v1)
+**File:** `contracts/CarrierwaveRO.sol` | **Sepolia:** `0xbbf8A6899797139dAbDD717fc4ac8e4A2b38d10f`
+- `mintRO(roId, contentHash)` - mints ERC-721 token, one per contentHash
+- `getRecord(tokenId)` - returns on-chain record
+- `totalMinted()` / `setMintingPaused(bool)`
+
+### CarrierwaveROv2
+**File:** `contracts/CarrierwaveROv2.sol` | **Sepolia:** `0xB93A8033883f7d9050bbfabEf35bD6a7D09d834a`
+- Same as v1 but adds `mintFee` sent to CWTreasury on each mint
+
+### CWTreasury
+**File:** `contracts/CWTreasury.sol` | **Sepolia:** `0x852eD1fFbc473e7353D793F9FffAFbC24FAf907D`
+- Receives platform fees (mint fees + bounty fees)
+- `distribute()` splits balance to recipients (founder 45%, investor 45%, ops 10%)
+- `setRecipients()` - owner only, must sum to 10000 bps
+
+### CWBountyPool
+**File:** `contracts/CWBountyPool.sol` | **Sepolia:** `0xEe7c58E02387548f7628e467d862483Ebb285e7f`
+- Bounty lifecycle: funders lock ETH, scientists claim with ROs, funders approve, payouts split
+- 2.5% platform fee to CWTreasury (owner-adjustable, max 10%)
+- Automatic scientist/institution split based on self-reported percentage
+- Institution share goes to escrow if no wallet registered (12-month expiry)
+- Key functions:
+  - `registerScientist(institutionName, splitBps)` - self-reported, can update
+  - `createBounty(diseaseTag, criteria, deadline) payable` - funder locks ETH
+  - `submitClaim(bountyId, roId, justification)` - scientist links RO
+  - `approveClaim(bountyId, claimIndex, shareBps)` / `rejectClaim()` - funder only
+  - `finalizeBounty(bountyId)` - distributes ETH (approved shares must sum to 10000)
+  - `cancelBounty(bountyId)` - refund after deadline, only if no approved claims
+  - `claimEscrow(escrowId)` - pays institution after wallet registration
+  - `withdrawExpiredEscrow(escrowId)` - scientist reclaims after 12 months
+  - `registerInstitutionWallet(name, wallet)` - owner only (v1)
 
 ---
 
 ## KV Data Structure
 
 ```
-ro:{uuid}             -> StoredResearchObject (full record JSON)
-ro:recent             -> List of IDs (lpush, newest first, max 1000)
-ro:wallet:{address}   -> List of IDs submitted by this wallet
-ro:tag:{tag}          -> List of IDs tagged with this disease area
+# Research Objects
+ro:{uuid}                   -> StoredResearchObject (full record JSON)
+ro:recent                   -> List of IDs (lpush, newest first, max 1000)
+ro:wallet:{address}         -> List of IDs submitted by this wallet
+ro:tag:{tag}                -> List of IDs tagged with this disease area
+
+# Bounty Pool
+scientist:{walletAddress}   -> ScientistProfile JSON
+bounty:{uuid}               -> StoredBounty JSON
+bounty:recent               -> List of bounty UUIDs (lpush, max 500)
+bounty:tag:{diseaseTag}     -> List of bounty UUIDs
+bounty:funder:{address}     -> List of bounty UUIDs
+claim:{uuid}                -> StoredClaim JSON
+claim:bounty:{bountyUuid}   -> List of claim UUIDs
+claim:scientist:{address}   -> List of claim UUIDs
+
+# AI Landscape
+landscape:global            -> Cached landscape JSON (1-hour TTL)
 ```
 
 ---
@@ -183,27 +251,41 @@ Do not introduce Tailwind, CSS modules, or external stylesheets.
 
 **Phase 3 - On-chain (Sepolia)**
 - CarrierwaveRO.sol written, compiled, deployed to Sepolia
+- CarrierwaveROv2.sol with mint fee, deployed to Sepolia
+- CWTreasury.sol for revenue splits, deployed to Sepolia
 - Mint button wired with viem on detail page
 - Mint API endpoint saves txHash to KV
 - Sepolia Etherscan link shown after mint
-- First RO successfully minted on Sepolia
-- "My profile" nav link on landing page (signed-in users only)
-- SIWE chainId fix deployed (reads dynamically from eth_chainId, not hardcoded to 1)
+- All contracts verified on Sepolia Etherscan
+- SIWE chainId fix deployed (reads dynamically from eth_chainId)
+
+**Phase 4 - AI landscape engine**
+- POST /api/ro/landscape using Claude Haiku
+- Clusters ROs by disease area, species, type
+- Surfaces hot areas, gaps, replication targets, contradictions
+- Wired to explorer sidebar
+
+**Phase 5 - Bounty Pool**
+- CWBountyPool.sol deployed to Sepolia and verified on Etherscan
+- Full lifecycle tested: register -> create bounty -> claim -> approve -> finalize
+- Platform fee (2.5%) flows to CWTreasury
+- Institutional split with escrow for unregistered institutions
+- Scientist registration at /register
+- Bounty browse feed at /bounties
+- Bounty creation at /bounties/create
+- Bounty detail with claim/approve/finalize at /bounties/[id]
+- 7 API routes for bounty system (scientist, bounty, claim CRUD)
+- Profile page shows scientist registration status + bounty link
+- "Bounties" nav link on landing page
 
 ### Next Steps (in order)
 
-1. Verify sign-in works after chainId fix on carrierwave.org
-2. Deploy contract to Ethereum mainnet
+1. Deploy contracts to Ethereum mainnet
    - Update NEXT_PUBLIC_CONTRACT_ADDRESS and NEXT_PUBLIC_CHAIN_ID=1
-   - Update mint button chain switch from 0xaa36a7 to 0x1
-3. Phase 4 - AI landscape engine
-   - POST /api/ro/landscape using Claude API
-   - Cluster ROs by disease area, species, type
-   - Surface hot areas, gaps, replication targets, contradictions
-   - Wire to explorer sidebar (currently shows placeholder)
-4. Relationship graph between ROs
-5. Funder dashboard
-6. Phase 5 - value distribution, reputation, DOI minting, IPFS
+   - Update NEXT_PUBLIC_BOUNTY_CONTRACT with mainnet address
+2. Relationship graph between ROs
+3. Funder dashboard
+4. Phase 6 - reputation, DOI minting, IPFS
 
 ---
 
@@ -212,7 +294,17 @@ Do not introduce Tailwind, CSS modules, or external stylesheets.
 ```bash
 npm run build          # check before deploying
 npx vercel --prod      # deploy to production
-npx hardhat compile    # compile contract
+npx hardhat compile    # compile contracts (optimizer enabled)
+
+# Deploy a contract to Sepolia
+npx hardhat ignition deploy ignition/modules/BountyPool.ts --network sepolia \
+  --parameters '{"BountyPoolModule": {"founderWallet": "0xFDD1093EDBECD9f8cC6659F18b0E3c18366432Fd", "treasuryAddress": "0x852eD1fFbc473e7353D793F9FffAFbC24FAf907D"}}'
+
+# Verify a contract on Etherscan
+npx hardhat verify --network sepolia <address> <constructor args...>
+
+# Run bounty lifecycle test
+npx hardhat run scripts/test-bounty-lifecycle.ts --network sepolia
 ```
 
 ---
@@ -220,14 +312,15 @@ npx hardhat compile    # compile contract
 ## Hard Rules - Never Violate These
 
 1. No Tailwind - all styling is inline
-2. No em dashes in SIWE statement strings
+2. No em dashes in SIWE statement strings or Solidity string literals
 3. SESSION_SECRET must be in Vercel env vars
 4. Profile page needs Suspense wrapper for useSearchParams
 5. Use Hardhat 2 only - not Hardhat 3
-6. DEPLOYER_PRIVATE_KEY stays in .env.local only
+6. DEPLOYER_PRIVATE_KEY and ETHERSCAN_API_KEY stay in .env.local only
 7. lib/session.ts uses SessionOptions not IronSessionOptions
 8. Ignition Lock.ts was deleted - do not recreate it
 9. Wordmark is always Helvetica - never change it
+10. Solidity optimizer must stay enabled (CWBountyPool exceeds 24KB without it)
 
 ---
 
