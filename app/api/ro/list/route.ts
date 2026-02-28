@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
     const wallet  = searchParams.get("wallet");
     const tag     = searchParams.get("tag");
     const sort    = searchParams.get("sort") ?? "newest";
+    const search  = searchParams.get("search");
 
     // ── Decide which ID list to pull from ────────────────────
     let ids: string[] = [];
@@ -79,6 +80,12 @@ export async function GET(req: NextRequest) {
     let ros = records
       .filter((r): r is StoredResearchObject => r !== null && r !== undefined)
       .filter(r => !type || r.roType === type);
+
+    // ── Search filter ────────────────────────────────────────────
+    if (search) {
+      const q = search.toLowerCase();
+      ros = ros.filter(r => r.title.toLowerCase().includes(q));
+    }
 
     // ── Sort ──────────────────────────────────────────────────
     if (sort === "confidence") {

@@ -85,6 +85,19 @@ const TYPE_COLORS: Record<ROType, string> = {
 const CONF_COLORS: Record<ConfidenceLevel, string> = { 1: "#ff9f43", 2: "#4f8cff", 3: "#2eddaa" };
 const CONF_LABELS: Record<ConfidenceLevel, string> = { 1: "Preliminary", 2: "Replicated", 3: "Validated" };
 
+const REL_COLORS: Record<string, string> = {
+  replicates: "#2eddaa", contradicts: "#ff6b6b", extends: "#4f8cff",
+  derives_from: "#ff9f43", uses_method_from: "#a78bfa",
+};
+const REL_LABELS: Record<string, string> = {
+  replicates: "replicates", contradicts: "contradicts", extends: "extends",
+  derives_from: "derives from", uses_method_from: "uses method from",
+};
+const REL_REVERSE: Record<string, string> = {
+  replicates: "replicated by", contradicts: "contradicted by", extends: "extended by",
+  derives_from: "derived by", uses_method_from: "method used by",
+};
+
 // ── Helpers ───────────────────────────────────────────────────
 
 function fmt(s: string) {
@@ -371,6 +384,34 @@ const css = `
     background: rgba(79,140,255,0.1); border: 1px solid rgba(79,140,255,0.2); color: var(--accent);
   }
 
+  /* Relationships */
+  .ro-rel {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .ro-rel:last-child { border-bottom: none; }
+  .ro-rel-badge {
+    padding: 3px 10px; border-radius: 10px; font-family: var(--mono);
+    font-size: 10px; border: 1px solid; font-weight: 500; white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .ro-rel-link {
+    font-size: 13px; color: var(--accent); text-decoration: none;
+    transition: color var(--t); overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ro-rel-link:hover { color: var(--bright); text-decoration: underline; }
+  .ro-rel-note {
+    font-family: var(--mono); font-size: 10px; color: var(--subtle);
+    margin-left: auto; flex-shrink: 0;
+  }
+  .ro-rel-subhead {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--subtle); margin-bottom: 8px;
+    margin-top: 12px;
+  }
+  .ro-rel-subhead:first-child { margin-top: 0; }
+
   /* Loading / error */
   .ro-loading {
     text-align: center; padding: 80px 24px;
@@ -402,6 +443,7 @@ export default function RODetailPage() {
   const [mintState, setMintState]   = useState<"idle"|"waiting"|"mining"|"done"|"error">("idle");
   const [mintError, setMintError]   = useState("");
   const [mintFee, setMintFee]       = useState<bigint | null>(null);
+  const [incoming, setIncoming]     = useState<{ sourceId: string; sourceTitle: string; type: string }[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -431,6 +473,27 @@ export default function RODetailPage() {
       .then((fee: bigint) => setMintFee(fee))
       .catch(() => {}); // v1 contract won't have mintFee — leave null
   }, []);
+
+  // Fetch incoming relationships from graph endpoint
+  useEffect(() => {
+    if (!id) return;
+    fetch("/api/ro/graph")
+      .then(r => r.json())
+      .then(data => {
+        if (!data.nodes || !data.edges) return;
+        const nodeMap = new Map<string, { title: string }>();
+        for (const n of data.nodes) nodeMap.set(n.id, { title: n.title });
+        const inc = data.edges
+          .filter((e: any) => e.target === id)
+          .map((e: any) => ({
+            sourceId: e.source,
+            sourceTitle: nodeMap.get(e.source)?.title ?? e.source,
+            type: e.type,
+          }));
+        setIncoming(inc);
+      })
+      .catch(() => {});
+  }, [id]);
 
   async function handleMint() {
     if (!ro) return;
@@ -680,6 +743,52 @@ export default function RODetailPage() {
                   {ro.diseaseAreaTags.map(t => (
                     <span key={t} className="ro-tag">{t}</span>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Relationships */}
+            {(ro.relationships?.length > 0 || incoming.length > 0) && (
+              <div className="ro-section">
+                <div className="ro-section-title">Relationships</div>
+                <div className="ro-card">
+                  {ro.relationships?.length > 0 && (
+                    <>
+                      {incoming.length > 0 && <div className="ro-rel-subhead">Outgoing</div>}
+                      {ro.relationships.map((rel, i) => {
+                        const rc = REL_COLORS[rel.type] ?? "#4a5580";
+                        return (
+                          <div key={`out-${i}`} className="ro-rel">
+                            <span className="ro-rel-badge" style={{ color: rc, borderColor: `${rc}44`, background: `${rc}12` }}>
+                              {REL_LABELS[rel.type] ?? rel.type}
+                            </span>
+                            {rel.targetId ? (
+                              <a href={`/ro/${rel.targetId}`} className="ro-rel-link">{rel.targetId.slice(0, 8)}...</a>
+                            ) : rel.targetDOI ? (
+                              <a href={`https://doi.org/${rel.targetDOI}`} target="_blank" rel="noopener noreferrer" className="ro-rel-link">{rel.targetDOI} ↗</a>
+                            ) : null}
+                            {rel.note && <span className="ro-rel-note">{rel.note}</span>}
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                  {incoming.length > 0 && (
+                    <>
+                      {ro.relationships?.length > 0 && <div className="ro-rel-subhead">Incoming</div>}
+                      {incoming.map((inc, i) => {
+                        const rc = REL_COLORS[inc.type] ?? "#4a5580";
+                        return (
+                          <div key={`in-${i}`} className="ro-rel">
+                            <span className="ro-rel-badge" style={{ color: rc, borderColor: `${rc}44`, background: `${rc}12` }}>
+                              {REL_REVERSE[inc.type] ?? inc.type}
+                            </span>
+                            <a href={`/ro/${inc.sourceId}`} className="ro-rel-link">{inc.sourceTitle}</a>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
                 </div>
               </div>
             )}

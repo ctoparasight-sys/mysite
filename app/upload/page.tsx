@@ -3,14 +3,15 @@
 // =================================================================
 // app/upload/page.tsx — Carrierwave RO Submission Wizard
 //
-// 7 steps:
+// 8 steps:
 //   1. What kind of result?    roType + dataType
 //   2. The experiment          species + experimentalSystem + orcid
 //   3. The content             title + abstract + claim + description
 //   4. Methods & reagents      methods + reagents[]
 //   5. Evidence quality        confidence + replicateCount + statisticalMethod
-//   6. Files                   figure + dataFile
-//   7. Rights & submit         commercial + disease tags + ipStatus + license
+//   6. Relationships           link to existing ROs
+//   7. Files                   figure + dataFile
+//   8. Rights & submit         commercial + disease tags + ipStatus + license
 // =================================================================
 
 import { useState, useEffect, useRef } from "react";
@@ -29,7 +30,9 @@ type StatisticalMethod = "none" | "t_test" | "anova" | "chi_square" | "mann_whit
   | "fisher_exact" | "linear_regression" | "survival_analysis" | "other";
 type IPStatus = "no_restrictions" | "institutional_review_pending" | "licensed";
 type License = "CC-BY-4.0" | "delayed_commercial";
+type RelationshipType = "replicates" | "contradicts" | "extends" | "derives_from" | "uses_method_from";
 interface Reagent { name: string; type: string; identifier: string; source: string; }
+interface FormRelationship { type: RelationshipType | ""; targetId: string; targetTitle: string; note: string; }
 
 interface FormState {
   // Step 1
@@ -52,9 +55,11 @@ interface FormState {
   replicateCount: string;
   statisticalMethod: StatisticalMethod | "";
   // Step 6
+  relationships: FormRelationship[];
+  // Step 7
   figureFile: File | null;
   dataFile: File | null;
-  // Step 7
+  // Step 8
   hasCommercialRelevance: boolean;
   diseaseTagInput: string;
   diseaseAreaTags: string[];
@@ -110,7 +115,15 @@ const STAT_OPTIONS: { value: StatisticalMethod; label: string }[] = [
 
 const REAGENT_TYPES = ["strain", "antibody", "plasmid", "chemical", "cell_line", "other"];
 
-const TOTAL_STEPS = 7;
+const RELATIONSHIP_TYPE_OPTIONS: { value: RelationshipType; label: string }[] = [
+  { value: "replicates",       label: "Replicates" },
+  { value: "contradicts",      label: "Contradicts" },
+  { value: "extends",          label: "Extends" },
+  { value: "derives_from",     label: "Derives from" },
+  { value: "uses_method_from", label: "Uses method from" },
+];
+
+const TOTAL_STEPS = 8;
 
 // ── Styles ────────────────────────────────────────────────────
 
@@ -446,10 +459,187 @@ const INITIAL: FormState = {
   title: "", abstract: "", claim: "", description: "",
   methods: "", reagents: [],
   confidence: 0, replicateCount: "1", statisticalMethod: "",
+  relationships: [],
   figureFile: null, dataFile: null,
   hasCommercialRelevance: false, diseaseTagInput: "",
   diseaseAreaTags: [], ipStatus: "", license: "",
 };
+
+// ── Relationship step sub-component ───────────────────────────
+
+function RelationshipStep({ form, setForm }: { form: FormState; setForm: React.Dispatch<React.SetStateAction<FormState>> }) {
+  const [searchQueries, setSearchQueries] = useState<Record<number, string>>({});
+  const [searchResults, setSearchResults] = useState<Record<number, { id: string; title: string }[]>>({});
+  const debounceRefs = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+
+  function addRelationship() {
+    setForm(f => ({
+      ...f,
+      relationships: [...f.relationships, { type: "", targetId: "", targetTitle: "", note: "" }],
+    }));
+  }
+
+  function updateRelationship(idx: number, field: keyof FormRelationship, value: string) {
+    setForm(f => {
+      const rels = [...f.relationships];
+      rels[idx] = { ...rels[idx], [field]: value };
+      return { ...f, relationships: rels };
+    });
+  }
+
+  function removeRelationship(idx: number) {
+    setForm(f => ({
+      ...f,
+      relationships: f.relationships.filter((_, i) => i !== idx),
+    }));
+    setSearchQueries(q => { const next = { ...q }; delete next[idx]; return next; });
+    setSearchResults(r => { const next = { ...r }; delete next[idx]; return next; });
+  }
+
+  function handleSearch(idx: number, query: string) {
+    setSearchQueries(q => ({ ...q, [idx]: query }));
+    if (debounceRefs.current[idx]) clearTimeout(debounceRefs.current[idx]);
+    if (!query.trim()) {
+      setSearchResults(r => ({ ...r, [idx]: [] }));
+      return;
+    }
+    debounceRefs.current[idx] = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/ro/list?search=${encodeURIComponent(query)}&limit=10`);
+        const data = await res.json();
+        const results = (data.ros ?? []).map((r: any) => ({ id: r.id, title: r.title }));
+        setSearchResults(prev => ({ ...prev, [idx]: results }));
+      } catch {
+        setSearchResults(prev => ({ ...prev, [idx]: [] }));
+      }
+    }, 300);
+  }
+
+  function selectTarget(idx: number, id: string, title: string) {
+    updateRelationship(idx, "targetId", id);
+    updateRelationship(idx, "targetTitle", title);
+    setSearchQueries(q => ({ ...q, [idx]: "" }));
+    setSearchResults(r => ({ ...r, [idx]: [] }));
+  }
+
+  return (
+    <>
+      {form.relationships.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+          {form.relationships.map((rel, i) => (
+            <div key={i} style={{
+              background: "var(--surface)", border: "1px solid var(--border)",
+              borderRadius: "var(--r)", padding: "16px",
+            }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}>
+                <select
+                  className="wz-select"
+                  value={rel.type}
+                  onChange={e => updateRelationship(i, "type", e.target.value)}
+                  style={{ flex: 1 }}
+                >
+                  <option value="">Relationship type...</option>
+                  {RELATIONSHIP_TYPE_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => removeRelationship(i)}
+                  style={{
+                    background: "transparent", border: "none", color: "var(--subtle)",
+                    cursor: "pointer", fontSize: 18, padding: "0 4px", lineHeight: 1,
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "var(--warn)")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "var(--subtle)")}
+                >
+                  x
+                </button>
+              </div>
+
+              {/* Target RO */}
+              {rel.targetId ? (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  background: "rgba(46,221,170,0.06)", border: "1px solid rgba(46,221,170,0.2)",
+                  borderRadius: "var(--r)", padding: "10px 14px", marginBottom: 10,
+                  fontFamily: "var(--mono)", fontSize: 12, color: "var(--accent2)",
+                }}>
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {rel.targetTitle || rel.targetId}
+                  </span>
+                  <span
+                    style={{ cursor: "pointer", color: "var(--subtle)", fontSize: 14 }}
+                    onClick={() => {
+                      updateRelationship(i, "targetId", "");
+                      updateRelationship(i, "targetTitle", "");
+                    }}
+                  >x</span>
+                </div>
+              ) : (
+                <div style={{ position: "relative", marginBottom: 10 }}>
+                  <input
+                    className="wz-input"
+                    type="text"
+                    placeholder="Search for an existing RO by title..."
+                    value={searchQueries[i] ?? ""}
+                    onChange={e => handleSearch(i, e.target.value)}
+                  />
+                  {(searchResults[i]?.length ?? 0) > 0 && (
+                    <div style={{
+                      position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50,
+                      background: "var(--surface)", border: "1px solid var(--border)",
+                      borderRadius: "0 0 var(--r) var(--r)", maxHeight: 200, overflowY: "auto",
+                    }}>
+                      {searchResults[i].map(r => (
+                        <div
+                          key={r.id}
+                          onClick={() => selectTarget(i, r.id, r.title)}
+                          style={{
+                            padding: "10px 14px", cursor: "pointer", fontSize: 13,
+                            color: "var(--text)", borderBottom: "1px solid var(--border)",
+                            transition: "background 100ms",
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "var(--surface2)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                        >
+                          <div style={{ fontWeight: 500, color: "var(--bright)", marginBottom: 2 }}>{r.title}</div>
+                          <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--subtle)" }}>{r.id.slice(0, 8)}...</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Optional note */}
+              <input
+                className="wz-input"
+                type="text"
+                placeholder="Note (optional)"
+                value={rel.note}
+                onChange={e => updateRelationship(i, "note", e.target.value)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        className="wz-btn wz-btn-ghost"
+        style={{ fontSize: 13 }}
+        onClick={addRelationship}
+      >
+        + Add relationship
+      </button>
+
+      {form.relationships.length === 0 && (
+        <p style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--subtle)", marginTop: 16 }}>
+          No relationships added. You can skip this step if this RO is standalone.
+        </p>
+      )}
+    </>
+  );
+}
 
 // ── Component ─────────────────────────────────────────────────
 
@@ -486,8 +676,9 @@ export default function UploadPage() {
       case 4: return !!form.methods.trim();
       case 5: return form.confidence > 0 && !!form.statisticalMethod
                   && Number(form.replicateCount) >= 1;
-      case 6: return true; // files optional
-      case 7: return !!form.ipStatus && !!form.license;
+      case 6: return true; // relationships optional
+      case 7: return true; // files optional
+      case 8: return !!form.ipStatus && !!form.license;
       default: return false;
     }
   }
@@ -514,7 +705,9 @@ export default function UploadPage() {
       confidence: form.confidence,
       replicateCount: Number(form.replicateCount),
       statisticalMethod: form.statisticalMethod,
-      relationships: [],
+      relationships: form.relationships
+        .filter(r => r.type && r.targetId)
+        .map(r => ({ type: r.type as RelationshipType, targetId: r.targetId, note: r.note || undefined })),
       hasCommercialRelevance: form.hasCommercialRelevance,
       diseaseAreaTags: form.diseaseAreaTags,
       ipStatus: form.ipStatus,
@@ -599,6 +792,7 @@ export default function UploadPage() {
     "The content",
     "Methods & reagents",
     "Evidence quality",
+    "Link related work",
     "Files",
     "Rights & submit",
   ];
@@ -609,6 +803,7 @@ export default function UploadPage() {
     "Write the core scientific content.",
     "Describe how this was done.",
     "How strong is the evidence?",
+    "Connect this RO to existing research objects.",
     "Attach a figure or data file (optional).",
     "Choose how this work can be used.",
   ];
@@ -881,8 +1076,11 @@ export default function UploadPage() {
             </>
           )}
 
-          {/* STEP 6 — Files */}
-          {step === 6 && (
+          {/* STEP 6 — Relationships */}
+          {step === 6 && <RelationshipStep form={form} setForm={setForm} />}
+
+          {/* STEP 7 — Files */}
+          {step === 7 && (
             <>
               <div className="wz-field">
                 <label className="wz-label">Figure <span className="wz-label-sub">optional · max 20 MB · PNG, JPG, PDF, SVG</span></label>
@@ -944,8 +1142,8 @@ export default function UploadPage() {
             </>
           )}
 
-          {/* STEP 7 — Rights & submit */}
-          {step === 7 && (
+          {/* STEP 8 — Rights & submit */}
+          {step === 8 && (
             <>
               <div className="wz-field">
                 <label className="wz-label">License <span className="wz-label-sub">required</span></label>
