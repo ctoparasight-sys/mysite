@@ -10,7 +10,7 @@
 Carrierwave maps biological knowledge in real time — result by result, not paper by paper. It infers what's known, what's next, and where the value is for every stakeholder.
 
 The core primitive is the **Research Object (RO)**: an atomic unit of scientific output — a single experimental result, negative finding, replication, method, or reagent set. Each RO is:
-- Submitted through a 7-step wizard at `/upload`
+- Submitted through an 8-step wizard at `/upload`
 - Hashed (SHA-256) on submission for content integrity
 - Stored in Vercel KV (Redis)
 - Browsable in a live explorer feed at `/explore`
@@ -36,6 +36,7 @@ The core primitive is the **Research Object (RO)**: an atomic unit of scientific
 | Chain | Ethereum Sepolia testnet (chainId: 11155111) | Mainnet deployment is next |
 | RPC | Alchemy | `SEPOLIA_RPC_URL` in `.env.local` |
 | Contract interaction | viem | |
+| Graph visualization | d3-force, d3-selection, d3-zoom | Lightweight D3 modules only |
 | Headline font | Space Grotesk 700 | |
 | Body font | DM Sans | |
 | Mono font | DM Mono | |
@@ -52,10 +53,12 @@ The core primitive is the **Research Object (RO)**: an atomic unit of scientific
 │   ├── explore/
 │   │   └── page.tsx                  <- RO explorer feed (live KV data)
 │   ├── upload/
-│   │   └── page.tsx                  <- 7-step RO submission wizard
+│   │   └── page.tsx                  <- 8-step RO submission wizard
+│   ├── graph/
+│   │   └── page.tsx                  <- Interactive D3 force-directed RO relationship graph
 │   ├── ro/
 │   │   └── [id]/
-│   │       └── page.tsx              <- RO detail page + mint button
+│   │       └── page.tsx              <- RO detail page + mint button + relationships
 │   ├── profile/
 │   │   ├── page.tsx                  <- Suspense wrapper (required for useSearchParams)
 │   │   └── ProfileContent.tsx        <- Wallet profile + scientist profile section
@@ -74,7 +77,8 @@ The core primitive is the **Research Object (RO)**: an atomic unit of scientific
 │       ├── logout/route.ts           <- Clears iron-session cookie
 │       ├── ro/
 │       │   ├── submit/route.ts       <- POST: submit RO / GET: fetch by ID
-│       │   ├── list/route.ts         <- GET: paginated + filtered RO feed
+│       │   ├── list/route.ts         <- GET: paginated + filtered RO feed (supports ?search=)
+│       │   ├── graph/route.ts       <- GET: all ROs as graph nodes + edges
 │       │   └── mint/route.ts         <- POST: save txHash after on-chain mint
 │       ├── scientist/
 │       │   └── register/route.ts     <- POST/GET: scientist profile to/from KV
@@ -243,9 +247,9 @@ Do not introduce Tailwind, CSS modules, or external stylesheets.
 
 **Phase 2 - UI**
 - Landing page with knowledge-map messaging and Space Grotesk headlines
-- 7-step submission wizard at /upload
+- 8-step submission wizard at /upload (Step 6: relationship linking)
 - Explorer feed at /explore - live KV data, filters, sidebar
-- RO detail page at /ro/[id] - full record, figure, mint button
+- RO detail page at /ro/[id] - full record, figure, mint button, relationships
 - Wallet profile page at /profile - stats, type breakdown, shareable URL
 - Domain carrierwave.org live on Vercel
 
@@ -278,14 +282,25 @@ Do not introduce Tailwind, CSS modules, or external stylesheets.
 - Profile page shows scientist registration status + bounty link
 - "Bounties" nav link on landing page
 
+**Phase 5.5 - RO Relationship Graph**
+- Interactive force-directed graph at /graph using D3 (d3-force, d3-selection, d3-zoom)
+- GET /api/ro/graph returns all ROs as nodes + edges
+- Nodes colored by roType, sized by confidence, minted ROs get green ring
+- Edges colored by relationship type with arrow markers (dashed for contradicts)
+- Zoom, pan, drag nodes, hover highlights connected subgraph, click navigates to /ro/[id]
+- 5 relationship types: replicates, contradicts, extends, derives_from, uses_method_from
+- Step 6 in upload wizard: search existing ROs and link relationships during submission
+- RO detail page shows outgoing + incoming relationships with colored type badges
+- Search filter (?search=) added to /api/ro/list for title substring matching
+- "Graph" nav link on landing page
+
 ### Next Steps (in order)
 
 1. Deploy contracts to Ethereum mainnet
    - Update NEXT_PUBLIC_CONTRACT_ADDRESS and NEXT_PUBLIC_CHAIN_ID=1
    - Update NEXT_PUBLIC_BOUNTY_CONTRACT with mainnet address
-2. Relationship graph between ROs
-3. Funder dashboard
-4. Phase 6 - reputation, DOI minting, IPFS
+2. Funder dashboard
+3. Phase 6 - reputation, DOI minting, IPFS
 
 ---
 
