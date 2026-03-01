@@ -207,6 +207,7 @@ export default function BountiesPage() {
           <a href="/" className="bf-wordmark">carrier<em>wave</em></a>
           <div className="bf-nav-right">
             <a href="/explore" className="bf-btn">Explore</a>
+            {address && <a href="/dashboard" className="bf-btn">Dashboard</a>}
             {address && <a href="/register" className="bf-btn">Register</a>}
             {address && <a href="/bounties/create" className="bf-btn bf-btn-primary">+ Create Bounty</a>}
           </div>

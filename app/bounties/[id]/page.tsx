@@ -532,6 +532,7 @@ export default function BountyDetailPage() {
           <a href="/" className="bd-wordmark">carrier<em>wave</em></a>
           <div style={{ display: "flex", gap: 10 }}>
             <a href="/bounties" className="bd-btn">All Bounties</a>
+            <a href="/dashboard" className="bd-btn">Dashboard</a>
           </div>
         </div>
 

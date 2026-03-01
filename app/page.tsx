@@ -533,6 +533,7 @@ export default function HomePage() {
             <a href="/explore" className="cw-btn cw-btn-ghost cw-btn-sm">Explore</a>
             <a href="/bounties" className="cw-btn cw-btn-ghost cw-btn-sm">Bounties</a>
             <a href="/graph" className="cw-btn cw-btn-ghost cw-btn-sm">Graph</a>
+            {address && <a href="/dashboard" className="cw-btn cw-btn-ghost cw-btn-sm">Dashboard</a>}
             <button
               onClick={() => setWalletModal(true)}
               className="cw-btn cw-btn-ghost cw-btn-sm"

@@ -54,6 +54,8 @@ The core primitive is the **Research Object (RO)**: an atomic unit of scientific
 │   │   └── page.tsx                  <- RO explorer feed (live KV data)
 │   ├── upload/
 │   │   └── page.tsx                  <- 8-step RO submission wizard
+│   ├── dashboard/
+│   │   └── page.tsx                  <- Funder dashboard (portfolio, claims queue, analytics)
 │   ├── graph/
 │   │   └── page.tsx                  <- Interactive D3 force-directed RO relationship graph
 │   ├── ro/
@@ -80,6 +82,8 @@ The core primitive is the **Research Object (RO)**: an atomic unit of scientific
 │       │   ├── list/route.ts         <- GET: paginated + filtered RO feed (supports ?search=)
 │       │   ├── graph/route.ts       <- GET: all ROs as graph nodes + edges
 │       │   └── mint/route.ts         <- POST: save txHash after on-chain mint
+│       ├── dashboard/
+│       │   └── route.ts              <- GET: aggregated funder dashboard data
 │       ├── scientist/
 │       │   └── register/route.ts     <- POST/GET: scientist profile to/from KV
 │       ├── bounty/
@@ -106,7 +110,8 @@ The core primitive is the **Research Object (RO)**: an atomic unit of scientific
 │   └── session.ts                    <- iron-session config (uses SessionOptions)
 ├── types/
 │   ├── ro.ts                         <- TypeScript types for ROs
-│   └── bounty.ts                     <- TypeScript types for bounties, claims, scientists
+│   ├── bounty.ts                     <- TypeScript types for bounties, claims, scientists
+│   └── dashboard.ts                  <- TypeScript types for funder dashboard
 ├── hardhat.config.ts                 <- Hardhat 2 config with optimizer + Etherscan
 ├── CLAUDE.md                         <- This file
 └── .env.local                        <- All secrets (gitignored, never commit)
@@ -296,10 +301,19 @@ Do not introduce Tailwind, CSS modules, or external stylesheets.
 - Search filter (?search=) added to /api/ro/list for title substring matching
 - "Graph" nav link on landing page
 
+**Phase 6 - Funder Dashboard**
+- Funder dashboard at /dashboard with summary stats, portfolio, claims queue, analytics
+- GET /api/dashboard aggregates all funder bounties + claims with computed summary
+- Summary cards: ETH locked, active bounties, total claims, pending actions
+- Portfolio tab: all bounties with quick finalize/cancel actions
+- Claims queue tab: all claims across bounties with approve/reject actions
+- Analytics tab: ETH by status bar, claims by status, disease breakdown, monthly timeline
+- Gate screens for unauthenticated users and funders with no bounties
+- Dashboard nav link on landing page (signed-in only), bounties page, bounty detail page
+
 ### Next Steps (in order)
 
-1. Funder dashboard
-2. Phase 6 - reputation, DOI minting, IPFS
+1. Phase 7 - reputation, DOI minting, IPFS
 
 ---
 
